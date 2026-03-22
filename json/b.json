@@ -1,5 +1,5 @@
 {
-  "spider": "../jar/custom_spider.jar;md5;5bfb9c86dc5ebd60fa91c2751f1cfa33",
+  "spider": "../jar/spider.jar;md5;074ddf3f17d1a91c461b42f1f701d0e7",
   "sites": [
     {
       "key": "NCat",
