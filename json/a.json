@@ -28,10 +28,10 @@
       "ext": "aHR0cHM6Ly92LnhseXMubHRkLnVhLw=="
     },
     {
-      "key": "Tvb",
+      "key": "Jable",
       "name": "Tvb|首页",
       "type": 3,
-      "api": "csp_HkTv",
+      "api": "csp_Jable",
       "searchable": 1,
       "changeable": 1
     },
