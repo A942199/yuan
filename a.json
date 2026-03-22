@@ -1,1 +1,153 @@
-
+{
+  "spider": "https://mirror.ghproxy.com/https://github.com/bizhangjie/CatVodSpider/blob/main/jar/custom_spider.jar;md5;5bfb9c86dc5ebd60fa91c2751f1cfa33",
+  "sites": [
+    {
+      "key": "NCat",
+      "name": "网飞猫 | 影视",
+      "type": 3,
+      "api": "csp_NCat",
+      "searchable": 1,
+      "filterable": 1,
+      "changeable": 0,
+      "ext": {}
+    },
+    {
+      "key": "TvDy",
+      "name": "电影天堂 | 影视",
+      "type": 3,
+      "api": "csp_TvDy",
+      "searchable": 1,
+      "filterable": 1,
+      "changeable": 0,
+      "ext": {}
+    },
+    {
+      "key": "W55Movie",
+      "name": "555电影 | 搜索×",
+      "type": 3,
+      "api": "csp_W55Movie",
+      "searchable": 0,
+      "filterable": 1,
+      "changeable": 0,
+      "ext": {}
+    },
+    {
+      "key": "DaGongRen",
+      "name": "打工人电影 | 影视",
+      "type": 3,
+      "api": "csp_DaGongRen",
+      "searchable": 1,
+      "filterable": 1,
+      "changeable": 0,
+      "ext": {}
+    },
+    {
+      "key": "HkTv",
+      "name": "TVB云播 | 影视",
+      "type": 3,
+      "api": "csp_HkTv",
+      "searchable": 0,
+      "filterable": 1,
+      "changeable": 0,
+      "ext": {}
+    },
+    {
+      "key": "JustLive",
+      "name": "JustLive | 直播",
+      "type": 3,
+      "api": "csp_JustLive",
+      "searchable": 1,
+      "filterable": 1,
+      "changeable": 0,
+      "ext": {}
+    },
+    {
+      "key": "Xb6v",
+      "name": "新版6V | 视频",
+      "type": 3,
+      "api": "csp_Xb6v",
+      "searchable": 1,
+      "filterable": 1,
+      "changeable": 0,
+      "ext": {}
+    },
+    {
+      "key": "Douban",
+      "name": "豆瓣 | 仅推荐",
+      "type": 3,
+      "api": "csp_Douban",
+      "searchable": 0,
+      "filterable": 1,
+      "changeable": 0,
+      "ext": {}
+    },
+    {
+      "key": "Jianpian",
+      "name": "荐片 | 视频",
+      "type": 3,
+      "api": "csp_Jianpian",
+      "searchable": 1,
+      "filterable": 1,
+      "changeable": 0,
+      "ext": {}
+    },
+    {
+      "key": "Ying",
+      "name": "樱花动漫 | 动漫",
+      "type": 3,
+      "api": "csp_Ying",
+      "searchable": 1,
+      "filterable": 1,
+      "changeable": 0,
+      "ext": {}
+    },
+    {
+      "key": "Ysj",
+      "name": "异世界动漫 | 动漫",
+      "type": 3,
+      "api": "csp_Ysj",
+      "searchable": 1,
+      "filterable": 1,
+      "changeable": 0,
+      "ext": {}
+    },
+    {
+      "key": "FirstAid",
+      "name": "健康 | 视频",
+      "type": 3,
+      "api": "csp_FirstAid",
+      "searchable": 1,
+      "filterable": 1,
+      "changeable": 0,
+      "ext": {}
+    },
+    {
+      "key": "nangua",
+      "name": "南瓜影视",
+      "type": 3,
+      "api": "./js/nangua.js",
+      "searchable": 0,
+      "filterable": 0,
+      "changeable": 0,
+      "timeout": 30,
+      "ext": {
+        "box": "TVBox",
+        "danmu": false
+      }
+    },
+    {
+      "key": "ikanbot",
+      "name": "爱看机器人",
+      "type": 3,
+      "api": "./js/ikanbot.js",
+      "searchable": 0,
+      "filterable": 0,
+      "changeable": 0,
+      "timeout": 30,
+      "ext": {
+        "box": "TVBox",
+        "danmu": false
+      }
+    }
+  ]
+}
