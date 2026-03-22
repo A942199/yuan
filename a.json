@@ -2,54 +2,174 @@
   "spider": "https://github.com/bizhangjie/CatVodSpider/blob/main/jar/custom_spider.jar;md5;5bfb9c86dc5ebd60fa91c2751f1cfa33",
   "sites": [
     {
+      "key": "Intruduce",
+      "name": "验证设置",
+      "type": 3,
+      "api": "csp_Introduce",
+      "searchable": 0,
+      "changeable": 0
+    },
+    {
+      "key": "Douban",
+      "name": "豆瓣|首页",
+      "type": 3,
+      "api": "csp_Douban",
+      "searchable": 0,
+      "changeable": 0,
+      "ext": {}
+    },
+    {
+      "key": "BD",
+      "name": "BD|首页",
+      "type": 3,
+      "api": "csp_BD",
+      "searchable": 1,
+      "changeable": 0,
+      "ext": "aHR0cHM6Ly92LnhseXMubHRkLnVhLw=="
+    },
+    {
+      "key": "Ddrk",
+      "name": "低端|首页",
+      "type": 3,
+      "api": "csp_Ddrk",
+      "searchable": 1,
+      "changeable": 1,
+      "ext": {
+        "site": "https://ddys.info/"
+      }
+    },
+    {
       "key": "NCat",
       "name": "网飞猫 | 影视",
       "type": 3,
       "api": "csp_NCat",
       "searchable": 1,
-      "filterable": 1,
       "changeable": 0,
       "ext": {}
     },
     {
-      "key": "TvDy",
-      "name": "电影天堂 | 影视",
-      "type": 3,
-      "api": "csp_TvDy",
-      "searchable": 1,
-      "filterable": 1,
-      "changeable": 0,
-      "ext": {}
-    },
-    {
-      "key": "W55Movie",
-      "name": "555电影 | 搜索×",
-      "type": 3,
-      "api": "csp_W55Movie",
-      "searchable": 0,
-      "filterable": 1,
-      "changeable": 0,
-      "ext": {}
-    },
-    {
-      "key": "DaGongRen",
-      "name": "打工人电影 | 影视",
-      "type": 3,
-      "api": "csp_DaGongRen",
-      "searchable": 1,
-      "filterable": 1,
-      "changeable": 0,
-      "ext": {}
-    },
-    {
-      "key": "HkTv",
-      "name": "TVB云播 | 影视",
+      "key": "Tvb",
+      "name": "Tvb|首页",
       "type": 3,
       "api": "csp_HkTv",
-      "searchable": 0,
-      "filterable": 1,
+      "searchable": 1,
+      "changeable": 1
+    },
+    {
+      "key": "XuanFeng",
+      "name": "旋风|广告",
+      "type": 3,
+      "api": "csp_XuanFeng",
+      "searchable": 1,
+      "changeable": 1
+    },
+    {
+      "key": "xb6v",
+      "name": "xb6v",
+      "type": 3,
+      "api": "csp_Xb6v",
+      "searchable": 1,
+      "changeable": 0,
+      "ext": ""
+    },
+    {
+      "key": "YHDM",
+      "name": "樱花动漫",
+      "type": 3,
+      "api": "csp_YHDM",
+      "searchable": 1,
+      "changeable": 0,
+      "ext": ""
+    },
+    {
+      "key": "DM84",
+      "name": "动漫巴士",
+      "type": 3,
+      "api": "csp_Dm84",
+      "searchable": 1,
+      "changeable": 0,
+      "ext": ""
+    },
+    {
+      "key": "ChangZhang",
+      "name": "厂长影视",
+      "type": 3,
+      "api": "csp_ChangZhang",
+      "searchable": "1",
+      "filterable": "0",
       "changeable": 0,
       "ext": {}
+    },
+    {
+      "key": "Zxzj",
+      "name": "在线之家",
+      "type": 3,
+      "api": "csp_Zxzj",
+      "searchable": "1",
+      "filterable": "0",
+      "changeable": 0,
+      "ext": {}
+    },
+    {
+      "key": "Mtyy",
+      "name": "麦田影院",
+      "type": 3,
+      "api": "csp_Mtyy",
+      "searchable": "1",
+      "filterable": "0",
+      "changeable": 0,
+      "ext": {}
+    },
+    {
+      "key": "Ikanbot",
+      "name": "爱看机器人",
+      "type": 3,
+      "api": "csp_Ikanbot",
+      "searchable": "1",
+      "filterable": "0",
+      "changeable": 0,
+      "ext": {}
+    },
+    {
+      "key": "PTT",
+      "name": "PTT|广告",
+      "type": 3,
+      "api": "csp_PTT",
+      "searchable": 1,
+      "filterable": "0",
+      "changeable": 1,
+      "ext": {}
+    },
+    {
+      "key": "glod",
+      "name": "金牌 | 影视",
+      "type": 3,
+      "api": "csp_Glod",
+      "searchable": 0,
+      "changeable": 0,
+      "ext": {}
+    },
+    {
+      "key": "DUB",
+      "name": "DUB",
+      "type": 3,
+      "api": "csp_DUB",
+      "searchable": 0,
+      "changeable": 0,
+      "ext": {}
+    },
+    {
+      "key": "bili",
+      "name": "哔哩",
+      "type": 3,
+      "api": "csp_Bili",
+      "searchable": 1,
+      "changeable": 0,
+      "ext": {
+        "json": "https://gh-proxy.com/https://raw.githubusercontent.com/gaotianliuyun/gao/master/json/bili.json",
+        "type": "帕梅拉#太极拳#广场舞#演唱会",
+        "cookie": ""
+      }
     },
     {
       "key": "JustLive",
@@ -57,97 +177,162 @@
       "type": 3,
       "api": "csp_JustLive",
       "searchable": 1,
-      "filterable": 1,
+      "filterable": 1
+    },
+    {
+      "key": "DaGongRen",
+      "name": "打工人",
+      "type": 3,
+      "api": "csp_DaGongRen",
+      "searchable": "1",
+      "filterable": "0",
       "changeable": 0,
       "ext": {}
     },
     {
-      "key": "Xb6v",
-      "name": "新版6V | 视频",
+      "key": "Liangzi",
+      "name": "量子影视",
       "type": 3,
-      "api": "csp_Xb6v",
+      "api": "csp_Liangzi",
+      "searchable": "1",
+      "filterable": "0",
+      "changeable": 0,
+      "ext": {}
+    },
+    {
+      "key": "WuMingMusic",
+      "name": "无名音乐",
+      "type": 3,
+      "api": "csp_WuMingMusic",
+      "searchable": "1",
+      "filterable": "0",
+      "changeable": 0,
+      "ext": {}
+    },
+    {
+      "key": "玩偶",
+      "name": "玩偶",
+      "type": 3,
+      "api": "csp_Wogg",
       "searchable": 1,
-      "filterable": 1,
-      "changeable": 0,
+      "changeable": 1,
       "ext": {}
     },
     {
-      "key": "Douban",
-      "name": "豆瓣 | 仅推荐",
+      "key": "木偶",
+      "name": "木偶",
       "type": 3,
-      "api": "csp_Douban",
+      "api": "csp_Mogg",
+      "searchable": 1,
+      "changeable": 1,
+      "ext": {}
+    },
+    {
+      "key": "多多影音",
+      "name": "多多影音|Pan",
+      "type": 3,
+      "api": "csp_DuoDuo",
+      "searchable": 1,
+      "changeable": 1,
+      "ext": "{\"site\": [\"https://tv.yydsys.top/\"]}"
+    },
+    {
+      "key": "csp_AList",
+      "name": "AList┃网盘",
+      "type": "3",
+      "api": "csp_AList",
+      "searchable": "0",
+      "filterable": "1",
+      "changeable": 0,
+      "ext": "./alist.json"
+    },
+    {
+      "key": "PanSou",
+      "name": "盘搜┃搜索",
+      "type": 3,
+      "api": "csp_PanSou",
+      "searchable": 1,
+      "changeable": 0,
+      "timeout": 30
+    },
+    {
+      "key": "PanSearch",
+      "name": "PanSearch┃搜索",
+      "type": 3,
+      "api": "csp_PanSearch",
+      "searchable": 1,
+      "changeable": 0,
+      "timeout": 30
+    },
+    {
+      "key": "YiSo",
+      "name": "易搜┃搜索",
+      "type": 3,
+      "api": "csp_YiSo",
+      "searchable": 1,
+      "changeable": 0,
+      "ext": "http://127.0.0.1:9978/file/tvfan/token.txt+4k|auto|fhd",
+      "timeout": 30
+    },
+    {
+      "key": "QiLeSo",
+      "name": "奇乐搜┃搜索",
+      "type": 3,
+      "api": "csp_QiLeSo",
       "searchable": 0,
-      "filterable": 1,
-      "changeable": 0,
-      "ext": {}
+      "timeout": 30
     },
     {
-      "key": "Jianpian",
-      "name": "荐片 | 视频",
+      "key": "找資源",
+      "name": "找資源",
       "type": 3,
-      "api": "csp_Jianpian",
+      "api": "csp_Zhaozy",
       "searchable": 1,
-      "filterable": 1,
       "changeable": 0,
-      "ext": {}
+      "ext": "$$$fanty$$$qqq111"
     },
     {
-      "key": "Ying",
-      "name": "樱花动漫 | 动漫",
+      "key": "KuaKeS",
+      "name": "夸克网盘社",
       "type": 3,
-      "api": "csp_Ying",
+      "api": "csp_KuaKeS",
       "searchable": 1,
-      "filterable": 1,
-      "changeable": 0,
+      "changeable": 1,
       "ext": {}
     },
     {
-      "key": "Ysj",
-      "name": "异世界动漫 | 动漫",
+      "key": "Yingso",
+      "name": "影搜",
       "type": 3,
-      "api": "csp_Ysj",
+      "api": "csp_Yingso",
       "searchable": 1,
-      "filterable": 1,
-      "changeable": 0,
-      "ext": {}
+      "changeable": 0
     },
     {
-      "key": "FirstAid",
-      "name": "健康 | 视频",
+      "key": "yppan",
+      "name": "云盘盘",
       "type": 3,
-      "api": "csp_FirstAid",
+      "api": "csp_YpPan",
       "searchable": 1,
-      "filterable": 1,
-      "changeable": 0,
+      "changeable": 0
+    },
+    {
+      "key": "KuaKeBa",
+      "name": "夸克吧",
+      "type": 3,
+      "api": "csp_KuaKeBa",
+      "searchable": 1,
+      "changeable": 1,
       "ext": {}
     },
     {
-      "key": "nangua",
-      "name": "南瓜影视",
+      "key": "DianYingYunJi",
+      "name": "电影云集",
       "type": 3,
-      "api": "./js/nangua.js",
-      "searchable": 0,
-      "filterable": 0,
-      "changeable": 0,
-      "timeout": 30,
-      "ext": {
-        "box": "TVBox",
-        "danmu": false
-      }
-    },
-    {
-      "key": "ikanbot",
-      "name": "爱看机器人",
-      "type": 3,
-      "api": "./js/ikanbot.js",
-      "searchable": 0,
-      "filterable": 0,
-      "changeable": 0,
-      "timeout": 30,
-      "ext": {
-        "box": "TVBox",
-        "danmu": false
-      }
+      "api": "csp_DianYingYunJi",
+      "searchable": 1,
+      "changeable": 1,
+      "ext": {}
     }
   ]
 }
