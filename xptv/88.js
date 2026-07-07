@@ -1,7 +1,7 @@
 const cheerio = createCheerio();
 
 const UA =
-  'Mozilla/5.0 (iPhone; CPU iPhone OS 18_2_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.2 Mobile/15E148 Safari/604.1';
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
 
 const headers = {
   Referer: 'https://www.88kanqiu.bar/',
@@ -111,9 +111,11 @@ function parseJson(data) {
 
 function decodeB64(str) {
   str = String(str || '').replace(/\s/g, '');
-
   str = str.replace(/-/g, '+').replace(/_/g, '/');
-  while (str.length % 4 !== 0) str += '=';
+
+  while (str.length % 4 !== 0) {
+    str += '=';
+  }
 
   try {
     if (typeof base64Decode === 'function') {
@@ -124,6 +126,7 @@ function decodeB64(str) {
   try {
     if (typeof atob === 'function') {
       const bin = atob(str);
+
       try {
         return decodeURIComponent(
           bin
@@ -154,20 +157,20 @@ function parseRealPlayUrl(input) {
   let playurl = htmlDecode(String(input || '').trim());
   playurl = safeDecodeURIComponent(playurl);
 
-  // 原 lazy 逻辑：embed=base64地址
+  // 处理 embed=base64真实地址
   if (/embed=/.test(playurl)) {
-    let m = playurl.match(/embed=([^&#]+)/);
+    const m = playurl.match(/embed=([^&#]+)/);
     if (m && m[1]) {
-      let b64 = safeDecodeURIComponent(m[1]);
+      const b64 = safeDecodeURIComponent(m[1]);
       playurl = decodeB64(b64);
       playurl = safeDecodeURIComponent(htmlDecode(playurl));
       playurl = playurl.split('#')[0];
     }
   }
 
-  // 原 lazy 逻辑：?url=真实地址
+  // 处理 ?url=真实地址
   else if (/\?url=|&url=/.test(playurl)) {
-    let m = playurl.match(/[?&]url=([^&#]+)/);
+    const m = playurl.match(/[?&]url=([^&#]+)/);
     if (m && m[1]) {
       playurl = safeDecodeURIComponent(htmlDecode(m[1]));
       playurl = playurl.split('#')[0];
@@ -182,63 +185,44 @@ function parseRealPlayUrl(input) {
 function sniffMediaUrl(text) {
   text = htmlDecode(String(text || ''));
 
-  let patterns = [
+  const patterns = [
     /https?:\/\/[^"'\\\s<>]+?\.m3u8[^"'\\\s<>]*/i,
     /https?:\/\/[^"'\\\s<>]+?\.flv[^"'\\\s<>]*/i,
     /https?:\/\/[^"'\\\s<>]+?\.mp4[^"'\\\s<>]*/i,
   ];
 
   for (let i = 0; i < patterns.length; i++) {
-    let m = text.match(patterns[i]);
-    if (m && m[0]) return htmlDecode(m[0]);
+    const m = text.match(patterns[i]);
+    if (m && m[0]) {
+      return htmlDecode(m[0]);
+    }
   }
 
   return '';
 }
 
-function parsePlayData(pdata) {
-  pdata = String(pdata || '');
+function decodeSourceData(sourceData) {
+  sourceData = String(sourceData || '');
 
-  let candidates = [];
+  // 页面源码里的真实逻辑：
+  // let x = data.slice(6);
+  // x = x.slice(0, -2);
+  // JSON.parse(decodeURIComponent(escape(window.atob(x))))
+  let raw = sourceData.slice(6);
+  raw = raw.slice(0, -2);
 
-  // 原始
-  candidates.push(pdata);
+  let decoded = decodeB64(raw);
+  decoded = htmlDecode(decoded);
 
-  // 原 DRPY 规则：
-  // pdata = pdata.slice(6);
-  // pdata = pdata.slice(0, -2);
-  if (pdata.length > 8) {
-    candidates.push(pdata.slice(6, -2));
-  }
+  log('decoded source = ' + decoded.substring(0, 300));
 
-  // 容错
-  if (pdata.length > 6) {
-    candidates.push(pdata.slice(6));
-  }
+  const json = parseJson(decoded);
+  return json && json.links ? json.links : [];
+}
 
-  if (pdata.length > 2) {
-    candidates.push(pdata.slice(0, -2));
-  }
-
-  for (let i = 0; i < candidates.length; i++) {
-    let item = candidates[i];
-
-    // 1. 直接 JSON
-    let direct = parseJson(item);
-    if (direct && direct.links && direct.links.length) {
-      return direct.links;
-    }
-
-    // 2. base64 后 JSON
-    let decoded = decodeB64(item);
-    let jo = parseJson(decoded);
-    if (jo && jo.links && jo.links.length) {
-      log('decoded = ' + decoded.substring(0, 300));
-      return jo.links;
-    }
-  }
-
-  return [];
+function getGameIdFromUrl(playPage) {
+  const m = String(playPage || '').match(/\/live\/(\d+)\/play/);
+  return m && m[1] ? m[1] : '';
 }
 
 async function getConfig() {
@@ -286,15 +270,13 @@ async function getCards(ext) {
 
     img = absUrl(img);
 
-    let status = cleanText(item.find('.btn').first().text()) || '直播';
-
-    let league = cleanText(item.find('.game-info-container').text());
-
-    let time = cleanText(item.find('.game-time').text());
+    const status = cleanText(item.find('.btn').first().text()) || '直播';
+    const league = cleanText(item.find('.game-info-container').text());
+    const time = cleanText(item.find('.game-time').text());
 
     let teams = [];
     item.find('.team-name').each((_, t) => {
-      let name = cleanText($(t).text());
+      const name = cleanText($(t).text());
       if (name) teams.push(name);
     });
 
@@ -327,13 +309,13 @@ async function getCards(ext) {
   // 兜底：页面结构变化时直接抓 /play 链接
   if (cards.length === 0) {
     $('a[href*="/live/"][href*="/play"], a[href*="/play"]').each((_, a) => {
-      let href = absUrl($(a).attr('href'));
+      const href = absUrl($(a).attr('href'));
       if (!href) return;
 
-      let exists = cards.some((v) => v.ext && v.ext.playPage === href);
+      const exists = cards.some((v) => v.ext && v.ext.playPage === href);
       if (exists) return;
 
-      let block = $(a).closest('.group-game-item, li, .list-group-item, div');
+      const block = $(a).closest('.group-game-item, li, .list-group-item, div');
 
       let img =
         block.find('img').first().attr('data-src') ||
@@ -378,32 +360,60 @@ async function getTracks(ext) {
   let playPage = ext.playPage || ext.url || ext.vod_id || '';
   playPage = absUrl(playPage);
 
-  let apiUrl = playPage.replace(/\/play(\?.*)?$/, '/play-url$1');
-
   log('playPage = ' + playPage);
-  log('apiUrl = ' + apiUrl);
 
   try {
-    const apiHeaders = {
-      ...headers,
-      Referer: playPage,
-      'X-Requested-With': 'XMLHttpRequest',
-      Accept: 'application/json, text/javascript, */*; q=0.01',
-    };
-
-    const { data } = await $fetch.get(apiUrl, {
-      headers: apiHeaders,
+    // 先请求播放页，从源码里取 gameId/shareId
+    const { data: playHtml } = await $fetch.get(playPage, {
+      headers: {
+        ...headers,
+        Referer: appConfig.site + '/',
+      },
     });
 
-    let raw = typeof data === 'string' ? data : JSON.stringify(data);
-    log('api raw = ' + raw.substring(0, 300));
+    const $ = cheerio.load(playHtml);
 
-    let json = parseJson(data);
+    let gameId = $('#gameId').attr('value') || $('#gameId').val() || '';
+    let shareId = $('#shareId').attr('value') || $('#shareId').val() || '';
+
+    // 兜底：从 URL 中取 gameId
+    if (!gameId) {
+      gameId = getGameIdFromUrl(playPage);
+    }
+
+    if (!gameId) {
+      log('gameId empty');
+      return jsonify({
+        list: [{ title: '实时直播', tracks }],
+      });
+    }
+
+    let sourceUrl = appConfig.site + '/live/' + gameId + '/source';
+
+    if (shareId) {
+      sourceUrl += '?share_id=' + encodeURIComponent(shareId);
+    }
+
+    log('sourceUrl = ' + sourceUrl);
+
+    const { data } = await $fetch.get(sourceUrl, {
+      headers: {
+        ...headers,
+        Referer: playPage,
+        Accept: 'application/json, text/javascript, */*; q=0.01',
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+    });
+
+    const raw = typeof data === 'string' ? data : JSON.stringify(data);
+    log('source raw = ' + raw.substring(0, 300));
+
+    const json = parseJson(data);
 
     let links = [];
 
     if (json && json.data) {
-      links = parsePlayData(json.data);
+      links = decodeSourceData(json.data);
     }
 
     if (json && json.links && json.links.length) {
@@ -413,15 +423,15 @@ async function getTracks(ext) {
     links.forEach((it, index) => {
       if (!it) return;
 
-      let lineName = it.name || it.title || '线路' + (index + 1);
-      let lineUrl = it.url || it.href || it.src || '';
+      const lineName = it.name || it.title || '线路' + (index + 1);
+      const lineUrl = it.url || it.href || it.src || '';
 
       if (!lineUrl) return;
 
       tracks.push({
         name: lineName,
         ext: {
-          // 按你给的 PandaTV 教程写法：这里必须传 playurl
+          // 按你 PandaTV 示例：getPlayinfo 读取 ext.playurl
           playurl: lineUrl,
           referer: playPage,
         },
@@ -447,14 +457,13 @@ async function getPlayinfo(ext) {
   ext = argsify(ext);
 
   let playurl = ext.playurl || '';
-  let referer = ext.referer || appConfig.site + '/';
+  const referer = ext.referer || appConfig.site + '/';
 
   log('getPlayinfo playurl raw = ' + playurl);
 
   playurl = parseRealPlayUrl(playurl);
   playurl = absUrl(playurl);
 
-  // 如果已经是 m3u8/flv/mp4，直接播放
   if (isMediaUrl(playurl)) {
     log('final playurl = ' + playurl);
 
@@ -469,7 +478,7 @@ async function getPlayinfo(ext) {
     });
   }
 
-  // 如果拿到的是播放器页，再尝试打开嗅探一次
+  // 如果线路给的是播放器页，再尝试打开嗅探 m3u8/flv/mp4
   try {
     const { data } = await $fetch.get(playurl, {
       headers: {
