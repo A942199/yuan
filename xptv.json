@@ -6,6 +6,12 @@
             "api": "csp_bde4",
             "ext": "https://raw.githubusercontent.com/fangkuia/XPTV/refs/heads/main/js/bdys.js"
         },
+        {
+            "name": "88看球",
+            "type": 3,
+            "api": "csp_88kanqiu",
+            "ext": "https://raw.githubusercontent.com/A942199/yuan/refs/heads/main/xptv/88.js"
+        },        
         { 
             "name": "欧乐🪜", 
             "type": 3, 
