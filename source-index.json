@@ -3,6 +3,8 @@
   "snapshot_at": "2026-07-25T02:36:26.604Z",
   "subscription_url": "https://raw.githubusercontent.com/A942199/yuan/refs/heads/main/TV.json",
   "source_count": 27,
+  "active_source_count": 25,
+  "disabled_source_count": 2,
   "sources": [
     {
       "name": "哔滴影视",
@@ -86,7 +88,9 @@
       "api": "csp_novipnoad",
       "local_file": "js/novipnoad.js",
       "upstream_url": "https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/novipnoad.js",
-      "upstream_blob_sha": "c4afec33fb16ba9dfad959d5cf0e960f2263e8d8"
+      "upstream_blob_sha": "c4afec33fb16ba9dfad959d5cf0e960f2263e8d8",
+      "active": false,
+      "disabled_reason": "upstream_cloudflare_challenge"
     },
     {
       "name": "星芽短劇",
@@ -170,7 +174,9 @@
       "api": "csp_lmm85",
       "local_file": "js/lmm85.js",
       "upstream_url": "https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/lmm85.js",
-      "upstream_blob_sha": "ee6053a8c8280f9d08ae92802bf1b25827f96307"
+      "upstream_blob_sha": "ee6053a8c8280f9d08ae92802bf1b25827f96307",
+      "active": false,
+      "disabled_reason": "upstream_cloudflare_challenge"
     },
     {
       "name": "ppnix",
