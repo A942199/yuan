@@ -3,8 +3,8 @@
   "snapshot_at": "2026-07-25T02:36:26.604Z",
   "subscription_url": "https://raw.githubusercontent.com/A942199/yuan/refs/heads/main/TV.json",
   "source_count": 27,
-  "active_source_count": 25,
-  "disabled_source_count": 2,
+  "active_source_count": 16,
+  "disabled_source_count": 11,
   "sources": [
     {
       "name": "哔滴影视",
@@ -53,21 +53,27 @@
       "api": "csp_age",
       "local_file": "js/agedm.js",
       "upstream_url": "https://gist.githubusercontent.com/occupy-pluto/e3a7bb98d5027d0f6dfa85fc2ac11a78/raw/6deb0475d295ac867ccb9c7cf3b1fb212a77abd7/agedm.js",
-      "upstream_blob_sha": null
+      "upstream_blob_sha": null,
+      "active": false,
+      "disabled_reason": "upstream_api_bad_gateway"
     },
     {
       "name": "4k-av",
       "api": "csp_4kav",
       "local_file": "js/4kav.js",
       "upstream_url": "https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/4kav.js",
-      "upstream_blob_sha": "983c92bbb7f41dc1d0285b46ff9b17687be2a9c4"
+      "upstream_blob_sha": "983c92bbb7f41dc1d0285b46ff9b17687be2a9c4",
+      "active": false,
+      "disabled_reason": "upstream_site_unavailable"
     },
     {
       "name": "韓劇看看",
       "api": "csp_hjkk",
       "local_file": "js/hjkk.js",
       "upstream_url": "https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/hjkk.js",
-      "upstream_blob_sha": "80d4edfaef7135444990e3cd0687f7e098173633"
+      "upstream_blob_sha": "80d4edfaef7135444990e3cd0687f7e098173633",
+      "active": false,
+      "disabled_reason": "upstream_bad_gateway"
     },
     {
       "name": "金牌影院",
@@ -81,7 +87,9 @@
       "api": "csp_saohuo",
       "local_file": "js/saohuo.js",
       "upstream_url": "https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/saohuo.js",
-      "upstream_blob_sha": "49d4ddda24f2d7a0a272cd8ace4a815e2ad01da9"
+      "upstream_blob_sha": "49d4ddda24f2d7a0a272cd8ace4a815e2ad01da9",
+      "active": false,
+      "disabled_reason": "upstream_timeout_522"
     },
     {
       "name": "NO視頻",
@@ -111,7 +119,9 @@
       "api": "csp_iyftv",
       "local_file": "js/iyftv.js",
       "upstream_url": "https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/iyftv.js",
-      "upstream_blob_sha": "92209060077cf9606ba0088ab1ced671bc5348d6"
+      "upstream_blob_sha": "92209060077cf9606ba0088ab1ced671bc5348d6",
+      "active": false,
+      "disabled_reason": "upstream_forbidden_and_play_url_empty"
     },
     {
       "name": "影视天堂",
@@ -125,7 +135,9 @@
       "api": "csp_aowu",
       "local_file": "js/aowu.js",
       "upstream_url": "https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/aowu.js",
-      "upstream_blob_sha": "776461768c026a420d4ecbdc23f444fb75bee33a"
+      "upstream_blob_sha": "776461768c026a420d4ecbdc23f444fb75bee33a",
+      "active": false,
+      "disabled_reason": "upstream_api_empty"
     },
     {
       "name": "荐片",
@@ -153,21 +165,27 @@
       "api": "csp_wwgz",
       "local_file": "js/wwgz.js",
       "upstream_url": "https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/wwgz.js",
-      "upstream_blob_sha": "2df8b0b1496a79061e9951227c1f63b97283d29b"
+      "upstream_blob_sha": "2df8b0b1496a79061e9951227c1f63b97283d29b",
+      "active": false,
+      "disabled_reason": "playback_parser_unavailable"
     },
     {
       "name": "七色番動漫",
       "api": "csp_7sefun",
       "local_file": "js/7sefun.js",
       "upstream_url": "https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/7sefun.js",
-      "upstream_blob_sha": "efa8ff2e68ad09318db393e5392da1628b60394b"
+      "upstream_blob_sha": "efa8ff2e68ad09318db393e5392da1628b60394b",
+      "active": false,
+      "disabled_reason": "upstream_site_unavailable"
     },
     {
       "name": "茶杯狐",
       "api": "csp_cupfox",
       "local_file": "js/cupfox.js",
       "upstream_url": "https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/cupfox.js",
-      "upstream_blob_sha": "0ca374a8d2c534a2f90dd21718a35fac6110e0c9"
+      "upstream_blob_sha": "0ca374a8d2c534a2f90dd21718a35fac6110e0c9",
+      "active": false,
+      "disabled_reason": "upstream_captcha_required"
     },
     {
       "name": "路漫漫",
