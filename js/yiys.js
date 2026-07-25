@@ -11,6 +11,22 @@ let appId = ''
 
 const filterList = {}
 
+function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function parseApiJson(resp, label) {
+    const status = Number(resp && resp.status || 200)
+    const text = typeof resp.data === 'string' ? resp.data.trim() : ''
+    if (status >= 400) throw new Error(`${label}_http_${status}`)
+    if (text && /^</.test(text)) throw new Error(`${label}_returned_html`)
+    try {
+        return typeof resp.data === 'string' ? JSON.parse(resp.data) : (resp.data || {})
+    } catch (error) {
+        throw new Error(`${label}_invalid_json`)
+    }
+}
+
 function sha256(str) {
     return CryptoJS.SHA256(str).toString(CryptoJS.enc.Hex)
 }
@@ -116,51 +132,76 @@ function getHeaders(params) {
 
 async function refreshToken() {
     const payload = { appID: appId, timestamp: ts() }
-    try {
-        const resp = await $fetch.post(host + '/vod-app/index/getGenerateKey', qs(payload), {
-            headers: {
-                ...getHeaders(),
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'X-Auth-Flow': '1',
-            },
-        })
-        const json = typeof resp.data === 'string' ? JSON.parse(resp.data) : resp.data
-        if (json && json.data) {
-            token = rsaPubDecrypt(json.data)
-            return !!token
+    for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+            const resp = await $fetch.post(host + '/vod-app/index/getGenerateKey', qs(payload), {
+                headers: {
+                    ...getHeaders(),
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Auth-Flow': '1',
+                },
+            })
+            const json = parseApiJson(resp, 'token')
+            if (json && json.data) {
+                token = rsaPubDecrypt(json.data)
+                return !!token
+            }
+        } catch (e) {
+            console.log('refreshToken error:', e.message || e)
+            if (attempt === 0) await sleep(1200)
         }
-    } catch (e) {
-        console.log('refreshToken error:', e.message || e)
     }
     return false
 }
 
 async function apiReq(url, payload) {
-    const headers = getHeaders(payload)
     const body = qs(payload)
-    let resp = await $fetch.post(url, body, {
-        headers: { ...headers, 'Content-Type': 'application/x-www-form-urlencoded' },
-    })
-    const content = typeof resp.data === 'string' ? resp.data : JSON.stringify(resp.data)
-    if (resp.status === 400 || (!content && Object.keys(resp.respHeaders || {}).length === 0)) {
-        await refreshToken()
-        const h2 = getHeaders(payload)
-        resp = await $fetch.post(url, body, {
-            headers: { ...h2, 'Content-Type': 'application/x-www-form-urlencoded' },
-        })
+    let lastError
+    for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+            const headers = getHeaders(payload)
+            const resp = await $fetch.post(url, body, {
+                headers: { ...headers, 'Content-Type': 'application/x-www-form-urlencoded' },
+            })
+            if (resp.status === 400 && attempt === 0) {
+                await refreshToken()
+                continue
+            }
+            return parseApiJson(resp, 'api')
+        } catch (error) {
+            lastError = error
+            if (attempt === 0) {
+                await sleep(1200)
+                continue
+            }
+        }
     }
-    return typeof resp.data === 'string' ? JSON.parse(resp.data) : resp.data
+    throw lastError || new Error('api_unavailable')
 }
 
 async function getConfig() {
     if (!appId) appId = genId()
     if (!token) await refreshToken()
 
-    const params = { timestamp: ts() }
-    const resp = await $fetch.get(host + '/vod-app/type/list?' + qs(params), {
-        headers: getHeaders(params),
-    })
-    const json = typeof resp.data === 'string' ? JSON.parse(resp.data) : resp.data
+    let json = {}
+    let lastError
+    for (let attempt = 0; attempt < 2; attempt++) {
+        const params = { timestamp: ts() }
+        try {
+            const resp = await $fetch.get(host + '/vod-app/type/list?' + qs(params), {
+                headers: getHeaders(params),
+            })
+            json = parseApiJson(resp, 'config')
+            break
+        } catch (error) {
+            lastError = error
+            if (attempt === 0) {
+                await sleep(1200)
+                await refreshToken()
+            }
+        }
+    }
+    if (!json.data) throw lastError || new Error('config_unavailable')
 
     const tabs = []
     const items = json.data || []
