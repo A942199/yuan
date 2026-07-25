@@ -2,16 +2,14 @@ const CryptoJS = createCryptoJS();
 const cheerio = createCheerio();
 
 const appConfig = {
-    ver: 1,
+    ver: 20260725,
     title: 'LIBVIO',
-    site: 'https://www.libvios.com', // 改这里：从 libvio.cc 改成 libvio.la
+    site: 'https://libviobd.com',
     tabs: [
         { name: '首页', ext: { url: '/', hasMore: false } },
-        { name: '电影', ext: { url: '/type/1-1.html' } },
-        { name: '剧集', ext: { url: '/type/2-1.html' } },
-        { name: '动漫', ext: { url: '/type/4-1.html' } },
-        { name: '日韩剧', ext: { url: '/type/15-1.html' } },
-        { name: '欧美剧', ext: { url: '/type/16-1.html' } },
+        { name: '电影', ext: { url: '/show/1-----------.html' } },
+        { name: '剧集', ext: { url: '/show/2-----------.html' } },
+        { name: '动漫', ext: { url: '/show/4-----------.html' } },
     ],
 };
 const UA =
@@ -31,9 +29,14 @@ async function getCards(ext) {
     let cards = [];
     let url = ext.url;
     let page = ext.page || 1;
-    ext.hasMore || true;
-
-    url = appConfig.site + url.replace('1.html', `${page}.html`);
+    if (url.startsWith('/show/')) {
+        url = page > 1
+            ? url.replace('-----------.html', `--------${page}---.html`)
+            : url;
+    } else if (page > 1 && /-\d+\.html$/.test(url)) {
+        url = url.replace(/-\d+\.html$/, `-${page}.html`);
+    }
+    url = new URL(url, appConfig.site).toString();
 
     const { data } = await $fetch.get(url, {
         headers,
@@ -42,7 +45,7 @@ async function getCards(ext) {
     const $ = cheerio.load(data);
     let vods = new Set();
     $('a.stui-vodlist__thumb').each((_, each) => {
-        const path = $(each).attr('href');
+        const path = $(each).attr('href') || '';
         if (path.startsWith('/detail/') && !vods.has(path)) {
             vods.add(path);
             cards.push({
@@ -62,7 +65,6 @@ async function getCards(ext) {
     })
 }
 
-// getTracks 改成这样（兼容新结构）：
 async function getTracks(ext) {
     const { url } = argsify(ext);
     let groups = [];
@@ -73,16 +75,17 @@ async function getTracks(ext) {
     $('div.playlist-panel').each((_, panel) => {
         const $panel = $(panel);
         const title = $panel.find('.panel-head h3').text().trim();
-        if (!title || title.includes('猜你喜欢')) return
-        if (title.includes('下载')) return
+        if (title.includes('猜你喜欢') || /下载|网盘|夸克|百度|迅雷/.test(title)) return
 
-        let group = { title, tracks: [] };
+        let group = { title: title || `线路${groups.length + 1}`, tracks: [] };
         $panel.find('.stui-content__playlist li').each((_, item) => {
             const a = $(item).find('a');
+            const path = a.attr('href') || '';
+            if (!/^\/(?:w|play)\//.test(path)) return;
             group.tracks.push({
-                name: a.text().trim(),
+                name: a.text().trim() || `播放${group.tracks.length + 1}`,
                 pan: '',
-                ext: { url: appConfig.site + a.attr('href') },
+                ext: { url: new URL(path, appConfig.site).toString() },
             });
         });
         if (group.tracks.length > 0) groups.push(group);
@@ -99,20 +102,6 @@ async function getTracks(ext) {
         }
     }
 
-    // 网盘下载
-    $('div.netdisk-panel, div.playlist-panel.netdisk-panel').each((_, panel) => {
-        const $panel = $(panel);
-        const title = $panel.find('.panel-head h3').text().trim();
-        if (!title || !title.includes('下载')) return
-        $panel.find('.netdisk-list a').each((_, item) => {
-            const a = $(item);
-            groups.push({
-                title: title,
-                tracks: [{ name: a.find('.netdisk-name').text().trim() || '合集', pan: a.attr('href') }],
-            });
-        });
-    });
-
     return jsonify({ list: groups })
 }
 
@@ -127,7 +116,7 @@ async function getPlayinfo(ext) {
     if (url) {
         try {
             const { data } = await $fetch.get(url, { headers });
-            const match = data.match(/var player_.*?=(.*?)</);
+            const match = String(data).match(/var\s+player_\w+\s*=\s*(\{[\s\S]*?\})\s*(?:;|<)/);
             if (match) {
                 const obj = JSON.parse(match[1]);
                 let playerUrl = obj.url;
@@ -140,7 +129,7 @@ async function getPlayinfo(ext) {
                     playerUrl = CryptoJS.enc.Base64.parse(playerUrl).toString(CryptoJS.enc.Utf8);
                 }
 
-                if (playerUrl.startsWith('http')) {
+                if (/^https?:\/\//i.test(playerUrl)) {
                     return jsonify({ urls: [playerUrl], headers: [headers] })
                 } else {
                     const ty_new = `${appConfig.site}/vid/ty4.php?url=${playerUrl}&next=${obj.link_next}&id=${obj.id}&nid=1`;
@@ -229,4 +218,3 @@ async function search(ext) {
         list: cards,
     })
 }
-
