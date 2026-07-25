@@ -13,7 +13,7 @@ const UA =
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
 
 let appConfig = {
-    ver: 20240413,
+    ver: 20260725,
     title: 'aowu',
     site: 'https://www.aowu.tv',
     tabs: [
@@ -70,7 +70,8 @@ async function getCards(ext) {
         },
     })
 
-    const cardList = argsify(data).list
+    const payload = argsify(data) || {}
+    const cardList = Array.isArray(payload.list) ? payload.list : []
     cardList.forEach((e) => {
         let name = e.vod_name
         let pic = e.vod_pic
@@ -107,7 +108,7 @@ async function getTracks(ext) {
     let data = resp.data
     
     // 检查是否需要 cookie 验证
-    if (data.includes('fl_js_validator') && data.includes('document.cookie')) {
+    if (typeof data === 'string' && data.includes('fl_js_validator') && data.includes('document.cookie')) {
         // 从响应中提取 cookie
         let cookieMatch = data.match(/document\.cookie\s*=\s*"([^"]+)"/)
         if (cookieMatch) {
@@ -188,7 +189,7 @@ async function getPlayinfo(ext) {
     let data = resp.data
     
     // 检查是否需要 cookie 验证
-    if (data.includes('fl_js_validator') && data.includes('document.cookie')) {
+    if (typeof data === 'string' && data.includes('fl_js_validator') && data.includes('document.cookie')) {
         // 从响应中提取 cookie
         let cookieMatch = data.match(/document\.cookie\s*=\s*"([^"]+)"/)
         if (cookieMatch) {
@@ -308,7 +309,7 @@ async function search(ext) {
         let data = resp.data
         
         // 检查是否需要 cookie 验证
-        if (data.includes('fl_js_validator') && data.includes('document.cookie')) {
+        if (typeof data === 'string' && data.includes('fl_js_validator') && data.includes('document.cookie')) {
             let cookieMatch = data.match(/document\.cookie\s*=\s*"([^"]+)"/)
             if (cookieMatch) {
                 let cookieStr = cookieMatch[1]
