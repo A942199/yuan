@@ -4,7 +4,7 @@ const UA =
     'Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Mobile/15E148 Safari/604.1'
 
 let appConfig = {
-    ver: 20260224,
+    ver: 20260725,
     title: '农民影视',
     site: 'https://vip.wwgz.cn:5200',
     tabs: [
@@ -352,6 +352,7 @@ async function getTracks(ext) {
     const $ = cheerio.load(data)
     // 從第一集取出 track list
     const href = $('.numList').first().find('li').first().find('a').attr('href')
+    if (!href) return jsonify({ list: [] })
     const firstEpUrl = appConfig.site + href
 
     const { data: epData } = await $fetch.get(firstEpUrl, {
@@ -360,8 +361,11 @@ async function getTracks(ext) {
         },
     })
 
-    const mac_from = epData?.match(/mac_from\s*=\s*'([^']*)'/)[1]
-    const mac_url = epData?.match(/mac_url\s*=\s*'([^']+)'/)[1]
+    const fromMatch = String(epData || '').match(/mac_from\s*=\s*'([^']*)'/)
+    const urlMatch = String(epData || '').match(/mac_url\s*=\s*'([^']+)'/)
+    if (!fromMatch || !urlMatch) return jsonify({ list: [] })
+    const mac_from = fromMatch[1]
+    const mac_url = urlMatch[1]
 
     const from = mac_from.split('$$$')
     const urls = mac_url.split('$$$')
@@ -371,9 +375,10 @@ async function getTracks(ext) {
             title: from[i],
             tracks: [],
         }
-        let eps = urls[i].split('#')
+        let eps = String(urls[i] || '').split('#')
         for (let j = 0; j < eps.length; j++) {
             let ep = eps[j].split('$')
+            if (!ep[1]) continue
             temp.tracks.push({
                 name: from.length == 1 ? `${from[i]}-${ep[0]}` : ep[0],
                 pan: '',
@@ -382,7 +387,7 @@ async function getTracks(ext) {
                 },
             })
         }
-        lists.push(temp)
+        if (temp.tracks.length > 0) lists.push(temp)
     }
 
     return jsonify({
@@ -404,11 +409,21 @@ async function getPlayinfo(ext) {
         },
     })
 
-    const match = data.match(/var\s+config\s*=\s*(\{[\s\S]*?\})/)
-    const configString = match?.[1]
-    const playUrl = configString.match(/url":\s*"(.+)"/)?.[1]
+    const match = String(data || '').match(/var\s+config\s*=\s*(\{[\s\S]*?\})\s*;/)
+    if (!match) return jsonify({ urls: [] })
 
-    return jsonify({ urls: [playUrl], headers: [{ 'User-Agent': UA }] })
+    let playUrl = ''
+    try {
+        playUrl = JSON.parse(match[1]).url || ''
+    } catch (error) {
+        playUrl = match[1].match(/["']url["']\s*:\s*["']([^"']+)["']/)?.[1] || ''
+    }
+
+    if (!/^https?:\/\//i.test(playUrl)) return jsonify({ urls: [] })
+    return jsonify({
+        urls: [playUrl],
+        headers: [{ 'User-Agent': UA, Referer: `${appConfig.site}/` }],
+    })
 }
 
 async function search(ext) {
