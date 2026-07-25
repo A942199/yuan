@@ -11,10 +11,18 @@ function unwrapHtml(data) {
     return data
 }
 
+function extractResultV2(data) {
+    const html = unwrapHtml(data)
+    const match = String(html || '').match(
+        /(?:var|let|const)\s+result_v2\s*=\s*(\{[\s\S]*?\})\s*;|window(?:\[['"]result_v2['"]\]|\s*\.\s*result_v2)\s*=\s*(\{[\s\S]*?\})\s*;/
+    )
+    return match ? JSON.parse(match[1] || match[2]) : null
+}
+
 const appConfig = {
-    ver: 20260726,
+    ver: 20260727,
     title: '在线之家',
-    site: 'https://www.zxzjhd.com',
+    site: 'https://www.zxzj.run',
     tabs: [
         {
             name: '电影',
@@ -602,13 +610,12 @@ async function getPlayinfo(ext) {
             },
         })
 
-        const resultMatch = unwrapHtml(playData).match(/var result_v2\s*=\s*(\{[\s\S]*?\})\s*;/)
-        if (!resultMatch) {
+        const rJson = extractResultV2(playData)
+        if (!rJson) {
             $print('result_v2 not found')
             return jsonify({ urls: [] })
         }
 
-        const rJson = JSON.parse(resultMatch[1])
         if (!rJson.data) {
             $print('result_v2 has no data')
             return jsonify({ urls: [] })
