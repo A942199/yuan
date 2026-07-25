@@ -12,7 +12,7 @@ function unwrapHtml(data) {
 }
 
 const appConfig = {
-    ver: 20260725,
+    ver: 20260726,
     title: '在线之家',
     site: 'https://www.zxzjhd.com',
     tabs: [
@@ -507,10 +507,14 @@ async function getTracks(ext) {
 
     $('.stui-content__playlist').each((_, playlist) => {
         const $playlist = $(playlist)
-        const nearbyTitle =
-            $playlist.prevAll('.stui-vodlist__head, h3, h4').first().text().trim() ||
-            $playlist.parent().prevAll('.stui-vodlist__head, h3, h4').first().text().trim() ||
+        // XPTV 的轻量 Cheerio 兼容层不支持前序兄弟节点遍历；只使用
+        // 已支持的 parent/find API，并在缺少线路标题时回退到序号。
+        const nearbyTitle = (
+            $playlist.attr('data-title') ||
+            $playlist.attr('data-from') ||
+            $playlist.parent().find('.stui-vodlist__head, h3, h4').first().text() ||
             ''
+        ).replace(/\s+/g, ' ').trim()
 
         // 网盘/下载不是浏览器视频资源，不能作为播放线路返回。
         if (/百度|网盘|下载|夸克|迅雷/.test(nearbyTitle)) return
