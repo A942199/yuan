@@ -19,8 +19,35 @@ function extractResultV2(data) {
     return match ? JSON.parse(match[1] || match[2]) : null
 }
 
+function extractEmbeddedMediaUrl(data) {
+    const html = String(unwrapHtml(data) || '')
+        .replace(/\\u002[fF]/g, '/')
+        .replace(/\\\//g, '/')
+        .replace(/&amp;/g, '&')
+    const attrMatch = html.match(/<(?:video|source)\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/i)
+    if (attrMatch && /^https?:\/\/.+(?:m3u8|mp4)(?:[?#]|$)/i.test(attrMatch[1])) {
+        return attrMatch[1]
+    }
+    const urlMatch = html.match(/https?:\/\/[^\s"'<>]+?\.(?:m3u8|mp4)(?:[?#][^\s"'<>]*)?/i)
+    return urlMatch ? urlMatch[0] : ''
+}
+
+function playerPageShape(data) {
+    const html = String(unwrapHtml(data) || '')
+    const hosts = []
+    const pattern = /<script\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/gi
+    let match
+    while ((match = pattern.exec(html)) && hosts.length < 4) {
+        try {
+            const host = new URL(match[1], appConfig.site).hostname
+            if (host && hosts.indexOf(host) < 0) hosts.push(host)
+        } catch (e) {}
+    }
+    return `len=${html.length},script_hosts=${hosts.join(',') || 'none'}`
+}
+
 const appConfig = {
-    ver: 20260727,
+    ver: 20260728,
     title: '在线之家',
     site: 'https://www.zxzj.run',
     tabs: [
@@ -610,9 +637,17 @@ async function getPlayinfo(ext) {
             },
         })
 
+        const embeddedUrl = extractEmbeddedMediaUrl(playData)
+        if (embeddedUrl) {
+            return jsonify({
+                urls: [embeddedUrl],
+                headers: [{ 'User-Agent': UA, Referer: playurl }],
+            })
+        }
+
         const rJson = extractResultV2(playData)
         if (!rJson) {
-            $print('result_v2 not found')
+            $print('result_v2 not found; player_page=' + playerPageShape(playData))
             return jsonify({ urls: [] })
         }
 
