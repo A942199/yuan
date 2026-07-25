@@ -4,7 +4,7 @@ const CryptoJS = createCryptoJS()
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.3'
 
 let appConfig = {
-    ver: 1,
+    ver: 20260725,
     title: '愛壹帆',
     site: 'https://m10.iyf.tv',
     tabs: [
@@ -54,14 +54,13 @@ let appConfig = {
 }
 
 async function getConfig() {
-    await updateKeys()
+    await ensureKeys(true)
     return jsonify(appConfig)
 }
 
 async function getCards(ext) {
     ext = argsify(ext)
-    let keys = $cache.get('iyf-keys')
-    const publicKey = JSON.parse(keys).publicKey
+    const { publicKey } = await ensureKeys()
     let cards = []
     let { id, page = 1 } = ext
 
@@ -74,9 +73,10 @@ async function getCards(ext) {
             'User-Agent': UA,
         },
     })
-    let list = argsify(data).data.info[0].result
+    const payload = argsify(data) || {}
+    const list = payload.data?.info?.[0]?.result || []
 
-    list.forEach((e) => {
+    if (Array.isArray(list)) list.forEach((e) => {
         cards.push({
             vod_id: e.key,
             vod_name: e.title,
@@ -95,7 +95,7 @@ async function getCards(ext) {
 
 async function getTracks(ext) {
     ext = argsify(ext)
-    const publicKey = JSON.parse($cache.get('iyf-keys')).publicKey
+    const { publicKey } = await ensureKeys()
     let tracks = []
     let key = ext.key
 
@@ -109,8 +109,9 @@ async function getTracks(ext) {
         },
     })
 
-    let playlist = argsify(data).data.info[0].playList
-    playlist.forEach((e) => {
+    const payload = argsify(data) || {}
+    const playlist = payload.data?.info?.[0]?.playList || []
+    if (Array.isArray(playlist)) playlist.forEach((e) => {
         const name = e.name
         const key = e.key
         tracks.push({
@@ -134,29 +135,56 @@ async function getTracks(ext) {
 
 async function getPlayinfo(ext) {
     ext = argsify(ext)
-    const publicKey = JSON.parse($cache.get('iyf-keys')).publicKey
     let key = ext.key
-    let url = `${appConfig.site}/v3/video/play?cinema=1&id=${key}&a=0&lang=none&usersign=1&region=GL.&device=1&isMasterSupport=1`
-    let params = url.split('?')[1]
-    url += `&vv=${getSignature(params)}&pub=${publicKey}`
+    if (!key) return jsonify({ urls: [] })
 
-    const { data } = await $fetch.get(url, {
-        headers: {
-            'User-Agent': UA,
-        },
-    })
+    // 播放接口偶尔返回空 info；每次重试都刷新密钥和签名。
+    for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+            const { publicKey } = await ensureKeys(attempt > 0)
+            let url = `${appConfig.site}/v3/video/play?cinema=1&id=${key}&a=0&lang=none&usersign=1&region=GL.&device=1&isMasterSupport=1`
+            const params = url.split('?')[1]
+            url += `&vv=${getSignature(params)}&pub=${publicKey}`
 
-    let paths = argsify(data).data.info[0].flvPathList
-    let playUrl = ''
-    paths.forEach(async (e) => {
-        if (e.isHls) {
-            let link = e.result
-            link += `?vv=${getSignature('')}&pub=${publicKey}`
-            playUrl = link
+            const { data } = await $fetch.get(url, {
+                headers: {
+                    'User-Agent': UA,
+                    Referer: `${appConfig.site}/`,
+                },
+            })
+
+            const payload = argsify(data) || {}
+            const info = payload.data?.info?.[0] || {}
+            let paths = Array.isArray(info.flvPathList) ? info.flvPathList.slice() : []
+
+            if (paths.length === 0 && Array.isArray(info.clarity)) {
+                paths = info.clarity
+                    .map((item) => item?.path || item)
+                    .filter(Boolean)
+                    .map((result) => ({ result, isHls: String(result).includes('.m3u8') }))
+            }
+
+            const candidate =
+                paths.find((item) => item?.isHls && /^https?:\/\//i.test(item.result || '')) ||
+                paths.find((item) => /^https?:\/\//i.test(item?.result || ''))
+
+            if (candidate) {
+                let playUrl = candidate.result
+                if (candidate.isHls) {
+                    const separator = playUrl.includes('?') ? '&' : '?'
+                    playUrl += `${separator}vv=${getSignature('')}&pub=${publicKey}`
+                }
+                return jsonify({
+                    urls: [playUrl],
+                    headers: [{ 'User-Agent': UA, Referer: `${appConfig.site}/` }],
+                })
+            }
+        } catch (error) {
+            console.log(`iyf play attempt ${attempt + 1}: ${error.message}`)
         }
-    })
+    }
 
-    return jsonify({ urls: [playUrl] })
+    return jsonify({ urls: [] })
 }
 
 async function search(ext) {
@@ -173,8 +201,9 @@ async function search(ext) {
         },
     })
 
-    let list = argsify(data).data.info[0].result
-    list.forEach((e) => {
+    const payload = argsify(data) || {}
+    const list = payload.data?.info?.[0]?.result || []
+    if (Array.isArray(list)) list.forEach((e) => {
         cards.push({
             vod_id: e.contxt,
             vod_name: e.title,
@@ -199,21 +228,35 @@ async function updateKeys() {
         },
     })
     const $ = cheerio.load(data)
-    let script = $('script:contains(injectJson)').text()
-    script.split('\n').forEach((e) => {
-        if (e.includes('injectJson')) {
-            let json = JSON.parse(e.replace('var injectJson =', '').replace(';', ''))
-            let publicKey = json['config'][0]['pConfig']['publicKey']
-            let privateKey = json['config'][0]['pConfig']['privateKey']
-            let keys = {
-                publicKey: publicKey,
-                privateKey: privateKey,
-            }
-            const jsonData = JSON.stringify(keys, null, 2)
+    const script = $('script:contains(injectJson)').text()
+    const match = script.match(/var\s+injectJson\s*=\s*(\{[\s\S]*?\})\s*;/)
+    if (!match) throw new Error('iyf keys not found')
 
-            $cache.set('iyf-keys', jsonData)
+    const json = JSON.parse(match[1])
+    const pConfig = json?.config?.[0]?.pConfig || {}
+    const keys = {
+        publicKey: pConfig.publicKey,
+        privateKey: pConfig.privateKey,
+    }
+    if (!keys.publicKey || !Array.isArray(keys.privateKey) || keys.privateKey.length === 0) {
+        throw new Error('iyf keys invalid')
+    }
+    $cache.set('iyf-keys', JSON.stringify(keys))
+    return keys
+}
+
+async function ensureKeys(force = false) {
+    if (!force) {
+        try {
+            const keys = JSON.parse($cache.get('iyf-keys') || '{}')
+            if (keys.publicKey && Array.isArray(keys.privateKey) && keys.privateKey.length > 0) {
+                return keys
+            }
+        } catch (error) {
+            console.log('iyf cached keys invalid')
         }
-    })
+    }
+    return updateKeys()
 }
 
 function getSignature(query) {
