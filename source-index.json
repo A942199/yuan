@@ -1,0 +1,197 @@
+{
+  "schema": "yuan-xptv-source-snapshot-v1",
+  "snapshot_at": "2026-07-25T02:36:26.604Z",
+  "subscription_url": "https://raw.githubusercontent.com/A942199/yuan/refs/heads/main/TV.json",
+  "source_count": 27,
+  "sources": [
+    {
+      "name": "哔滴影视",
+      "api": "csp_bde4",
+      "local_file": "js/bdys.js",
+      "upstream_url": "https://raw.githubusercontent.com/fangkuia/XPTV/refs/heads/main/js/bdys.js",
+      "upstream_blob_sha": "969cfdc8d7575c96ae0a12575bad36ea32f860ae"
+    },
+    {
+      "name": "欧乐🪜",
+      "api": "csp_Olevod",
+      "local_file": "js/ole.js",
+      "upstream_url": "https://raw.githubusercontent.com/fangkuia/XPTV/refs/heads/main/js/ole.js",
+      "upstream_blob_sha": "92f6021057e0e56854fb29b55f17260c2c18862c"
+    },
+    {
+      "name": "在线之家",
+      "api": "csp_Zxzj",
+      "local_file": "js/zxzj.js",
+      "upstream_url": "https://raw.githubusercontent.com/fangkuia/XPTV/refs/heads/main/js/zxzj.js",
+      "upstream_blob_sha": "1dccea44b3f49a1a837a99520c155580d39745ba"
+    },
+    {
+      "name": "LIBVIO",
+      "api": "csp_libvio",
+      "local_file": "js/libvio.js",
+      "upstream_url": "https://raw.githubusercontent.com/fangkuia/XPTV/refs/heads/main/js/libvio.js",
+      "upstream_blob_sha": "1deda67957ebc4c6ffce48bcfbdd1a04204b02f9"
+    },
+    {
+      "name": "ギリギリ动漫",
+      "api": "csp_ai",
+      "local_file": "js/ai.js",
+      "upstream_url": "https://raw.githubusercontent.com/fangkuia/XPTV/refs/heads/main/js/ai.js",
+      "upstream_blob_sha": "7f3ad22947e98f1bba004e6ca283fcdc153c7a50"
+    },
+    {
+      "name": "独播库",
+      "api": "csp_duboku",
+      "local_file": "js/duboku.js",
+      "upstream_url": "https://raw.githubusercontent.com/fangkuia/XPTV/refs/heads/main/js/duboku.js",
+      "upstream_blob_sha": "956dacbcbc435f703cf98e858e201dfc76237993"
+    },
+    {
+      "name": "AGE动漫",
+      "api": "csp_age",
+      "local_file": "js/agedm.js",
+      "upstream_url": "https://gist.githubusercontent.com/occupy-pluto/e3a7bb98d5027d0f6dfa85fc2ac11a78/raw/6deb0475d295ac867ccb9c7cf3b1fb212a77abd7/agedm.js",
+      "upstream_blob_sha": null
+    },
+    {
+      "name": "4k-av",
+      "api": "csp_4kav",
+      "local_file": "js/4kav.js",
+      "upstream_url": "https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/4kav.js",
+      "upstream_blob_sha": "983c92bbb7f41dc1d0285b46ff9b17687be2a9c4"
+    },
+    {
+      "name": "韓劇看看",
+      "api": "csp_hjkk",
+      "local_file": "js/hjkk.js",
+      "upstream_url": "https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/hjkk.js",
+      "upstream_blob_sha": "80d4edfaef7135444990e3cd0687f7e098173633"
+    },
+    {
+      "name": "金牌影院",
+      "api": "csp_jpyy",
+      "local_file": "js/jpyy.js",
+      "upstream_url": "https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/jpyy.js",
+      "upstream_blob_sha": "8d3e2fdaebd6076feaa1065494e5afd2352c69f6"
+    },
+    {
+      "name": "燒火電影",
+      "api": "csp_saohuo",
+      "local_file": "js/saohuo.js",
+      "upstream_url": "https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/saohuo.js",
+      "upstream_blob_sha": "49d4ddda24f2d7a0a272cd8ace4a815e2ad01da9"
+    },
+    {
+      "name": "NO視頻",
+      "api": "csp_novipnoad",
+      "local_file": "js/novipnoad.js",
+      "upstream_url": "https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/novipnoad.js",
+      "upstream_blob_sha": "c4afec33fb16ba9dfad959d5cf0e960f2263e8d8"
+    },
+    {
+      "name": "星芽短劇",
+      "api": "csp_xingya",
+      "local_file": "js/xingya.js",
+      "upstream_url": "https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/xingya.js",
+      "upstream_blob_sha": "653220110cd6ececff4c79d6b63e07d0740f3366"
+    },
+    {
+      "name": "瓜子",
+      "api": "csp_guazi",
+      "local_file": "js/gzys.js",
+      "upstream_url": "https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/gzys.js",
+      "upstream_blob_sha": "a05edd56c5c26be581a409ab4cc1c8f3b25e54e2"
+    },
+    {
+      "name": "愛壹帆",
+      "api": "csp_iyftv",
+      "local_file": "js/iyftv.js",
+      "upstream_url": "https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/iyftv.js",
+      "upstream_blob_sha": "92209060077cf9606ba0088ab1ced671bc5348d6"
+    },
+    {
+      "name": "影视天堂",
+      "api": "csp_ystt",
+      "local_file": "js/ystt.js",
+      "upstream_url": "https://raw.githubusercontent.com/fangkuia/XPTV/refs/heads/main/js/ystt.js",
+      "upstream_blob_sha": "e72fb85e07aeee75b71037893b1f055bbb9ed796"
+    },
+    {
+      "name": "嗷嗚動漫",
+      "api": "csp_aowu",
+      "local_file": "js/aowu.js",
+      "upstream_url": "https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/aowu.js",
+      "upstream_blob_sha": "776461768c026a420d4ecbdc23f444fb75bee33a"
+    },
+    {
+      "name": "荐片",
+      "api": "csp_jianpian",
+      "local_file": "js/jianpian.js",
+      "upstream_url": "https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/jianpian.js",
+      "upstream_blob_sha": "6c4cc3fa8795b5762a7d9d9818ea096e6beec71b"
+    },
+    {
+      "name": "人人",
+      "api": "csp_rrmj",
+      "local_file": "js/rrmj.js",
+      "upstream_url": "https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/rrmj.js",
+      "upstream_blob_sha": "173fd82748b42378b3b674131d9bb0fff5c29afb"
+    },
+    {
+      "name": "anime1",
+      "api": "csp_anime1",
+      "local_file": "js/anime1.js",
+      "upstream_url": "https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/anime1.js",
+      "upstream_blob_sha": "ec34e8fc8ab6522f3ac0bea21a4a9942eb1d9517"
+    },
+    {
+      "name": "农民影视",
+      "api": "csp_wwgz",
+      "local_file": "js/wwgz.js",
+      "upstream_url": "https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/wwgz.js",
+      "upstream_blob_sha": "2df8b0b1496a79061e9951227c1f63b97283d29b"
+    },
+    {
+      "name": "七色番動漫",
+      "api": "csp_7sefun",
+      "local_file": "js/7sefun.js",
+      "upstream_url": "https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/7sefun.js",
+      "upstream_blob_sha": "efa8ff2e68ad09318db393e5392da1628b60394b"
+    },
+    {
+      "name": "茶杯狐",
+      "api": "csp_cupfox",
+      "local_file": "js/cupfox.js",
+      "upstream_url": "https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/cupfox.js",
+      "upstream_blob_sha": "0ca374a8d2c534a2f90dd21718a35fac6110e0c9"
+    },
+    {
+      "name": "路漫漫",
+      "api": "csp_lmm85",
+      "local_file": "js/lmm85.js",
+      "upstream_url": "https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/lmm85.js",
+      "upstream_blob_sha": "ee6053a8c8280f9d08ae92802bf1b25827f96307"
+    },
+    {
+      "name": "ppnix",
+      "api": "csp_ppnix",
+      "local_file": "js/ppnix.js",
+      "upstream_url": "https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/ppnix.js",
+      "upstream_blob_sha": "082fb174ea1e70404edc69b4a3e75d3b60e39f81"
+    },
+    {
+      "name": "河馬短劇",
+      "api": "csp_kuaikaw",
+      "local_file": "js/kuaikaw.js",
+      "upstream_url": "https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/kuaikaw.js",
+      "upstream_blob_sha": "b58a5481d2adbea1608f143f38fd22d25ac20b63"
+    },
+    {
+      "name": "壹影視",
+      "api": "csp_yiys",
+      "local_file": "js/yiys.js",
+      "upstream_url": "https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/yiys.js",
+      "upstream_blob_sha": "40a2d90c90435ba301def022ca4cb634f25ec6f5"
+    }
+  ]
+}
