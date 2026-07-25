@@ -4,7 +4,7 @@ const cheerio = createCheerio();
 const UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_2_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.2.1 Mobile/15E148 Safari/604.1';
 
 let appConfig = {
-    ver: 1,
+    ver: 20260725,
     title: '影视天堂',
     site: 'https://ysttv.com',
     tabs: [
@@ -71,21 +71,27 @@ async function getTracks(ext) {
 
     const $ = cheerio.load(data);
     let tracks = [];
+    const seen = new Set();
 
-    $('.overflow-auto > ul > li').each((_, element) => {
-        const name = $(element).find('a').text().trim();
-        const href = $(element).find('a').attr('href');
+    // 站点新版详情页已移除旧的 .overflow-auto 列表，播放入口统一为 /player/。
+    $('a[href^="/player/"]').each((index, element) => {
+        const href = $(element).attr('href');
+        if (!href || seen.has(href)) return;
+        seen.add(href);
+        const name = $(element).text().replace(/\s+/g, ' ').trim() || `播放${index + 1}`;
         tracks.push({
-            name: name,
+            name,
             pan: '',
-            ext: { url: `${appConfig.site}${href}` }
+            ext: { url: new URL(href, appConfig.site).toString() }
         });
     });
 
-    list.push({
-        title: '默认分组',
-        tracks: tracks
-    });
+    if (tracks.length > 0) {
+        list.push({
+            title: '在线播放',
+            tracks
+        });
+    }
 
     return JSON.stringify({ list: list });
 }
@@ -99,9 +105,15 @@ async function getPlayinfo(ext) {
     });
 
     const $ = cheerio.load(data);
-    const playUrl = $('#mse').attr('data-url');
-    
-    return JSON.stringify({ urls: [playUrl], headers: [{ 'User-Agent': UA }] });
+    const playUrl = ($('#mse').attr('data-url') || '').trim();
+    if (!/^https?:\/\//i.test(playUrl)) {
+        return JSON.stringify({ urls: [] });
+    }
+
+    return JSON.stringify({
+        urls: [playUrl],
+        headers: [{ 'User-Agent': UA, Referer: `${appConfig.site}/` }]
+    });
 }
 
 async function search(ext) {
