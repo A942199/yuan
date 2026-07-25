@@ -12,7 +12,7 @@ function unwrapHtml(data) {
 }
 
 const appConfig = {
-    ver: 20260426,
+    ver: 20260725,
     title: '在线之家',
     site: 'https://www.zxzjhd.com',
     tabs: [
@@ -494,7 +494,7 @@ async function getCards(ext) {
 
 async function getTracks(ext) {
     ext = argsify(ext)
-    var tracks = []
+    const groups = []
     let url = ext.url
 
     const { data } = await $fetch.get(url, {
@@ -505,28 +505,39 @@ async function getTracks(ext) {
 
     const $ = cheerio.load(unwrapHtml(data))
 
-    $('.stui-content__playlist a').each((_, each) => {
-        const href = $(each).attr('href')
-        const name = $(each).text()
-        if (href && name && name !== '合集') {
+    $('.stui-content__playlist').each((_, playlist) => {
+        const $playlist = $(playlist)
+        const nearbyTitle =
+            $playlist.prevAll('.stui-vodlist__head, h3, h4').first().text().trim() ||
+            $playlist.parent().prevAll('.stui-vodlist__head, h3, h4').first().text().trim() ||
+            ''
+
+        // 网盘/下载不是浏览器视频资源，不能作为播放线路返回。
+        if (/百度|网盘|下载|夸克|迅雷/.test(nearbyTitle)) return
+
+        const tracks = []
+        $playlist.find('a[href]').each((_, each) => {
+            const href = $(each).attr('href') || ''
+            const name = $(each).text().trim()
+            if (!href.startsWith('/vodplay/') || !name || name === '合集') return
             tracks.push({
-                name: name.trim(),
+                name,
                 pan: '',
                 ext: {
                     url: `${appConfig.site}${href}`,
                 },
             })
+        })
+
+        if (tracks.length > 0) {
+            groups.push({
+                title: nearbyTitle || `线路${groups.length + 1}`,
+                tracks,
+            })
         }
     })
 
-    return jsonify({
-        list: [
-            {
-                title: '默认分组',
-                tracks,
-            },
-        ],
-    })
+    return jsonify({ list: groups })
 }
 
 async function getPlayinfo(ext) {
@@ -566,8 +577,11 @@ async function getPlayinfo(ext) {
             )
         }
 
-        if (playurl.indexOf('m3u8') >= 0 || playurl.indexOf('mp4') >= 0) {
-            return jsonify({ urls: [playurl] })
+        if (/^https?:\/\/.+(?:m3u8|mp4)(?:[?#]|$)/i.test(playurl)) {
+            return jsonify({
+                urls: [playurl],
+                headers: [{ 'User-Agent': UA, Referer: `${appConfig.site}/` }],
+            })
         }
 
         // encrypt=3: fetch parse page to get result_v2
@@ -586,8 +600,8 @@ async function getPlayinfo(ext) {
 
         const resultMatch = unwrapHtml(playData).match(/var result_v2\s*=\s*(\{[\s\S]*?\})\s*;/)
         if (!resultMatch) {
-            $print('result_v2 not found, returning playurl directly')
-            return jsonify({ urls: [playurl] })
+            $print('result_v2 not found')
+            return jsonify({ urls: [] })
         }
 
         const rJson = JSON.parse(resultMatch[1])
@@ -604,13 +618,16 @@ async function getPlayinfo(ext) {
         const purl =
             temp.substring(0, (temp.length - 7) / 2) + temp.substring((temp.length - 7) / 2 + 7)
 
-        if (purl.indexOf('m3u8') >= 0 || purl.indexOf('mp4') >= 0) {
+        if (/^https?:\/\/.+(?:m3u8|mp4)(?:[?#]|$)/i.test(purl)) {
             $print('***在线之家purl =====>' + purl)
-            return jsonify({ urls: [purl] })
+            return jsonify({
+                urls: [purl],
+                headers: [{ 'User-Agent': UA, Referer: `${appConfig.site}/` }],
+            })
         }
 
         $print('decoded url is not m3u8/mp4: ' + purl)
-        return jsonify({ urls: [purl] })
+        return jsonify({ urls: [] })
     } catch (error) {
         $print(error)
         return jsonify({ urls: [] })

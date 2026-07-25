@@ -7,7 +7,7 @@ const headers = {
 }
 
 const appConfig = {
-  ver: 1,
+  ver: 20260725,
   title: "AGE",
   site: "https://m.agedm.io/#/",
   tabs: [{
@@ -34,7 +34,9 @@ async function getCards(ext) {
     headers
   })
   
-  argsify(data).videos?.forEach( each => {
+  const payload = argsify(data) || {}
+  const videos = payload.videos || payload.data?.videos || []
+  videos.forEach( each => {
     cards.push({
       vod_id: `${each.id}`,
       vod_name: each.name,
@@ -62,11 +64,11 @@ async function getTracks(ext) {
   });
   
   const json = argsify(data)
-  const player_label_arr = json.player_label_arr
-  const playlists = json.video.playlists
-  const vip = json.player_jx.vip
-  const zj = json.player_jx.zj
-  const player_vip = json.player_vip
+  const player_label_arr = json.player_label_arr || {}
+  const playlists = json.video?.playlists || {}
+  const vip = json.player_jx?.vip || ''
+  const zj = json.player_jx?.zj || ''
+  const player_vip = json.player_vip || {}
 
   for (var key in playlists) {
     if (!key.includes('m3u8')){
@@ -80,7 +82,7 @@ async function getTracks(ext) {
     v.forEach( each => {
       if (each.length == 2) {
         let path = `${zj}${each[1]}`
-        if (player_vip.hasOwnProperty(key)) {
+        if (Object.prototype.hasOwnProperty.call(player_vip, key)) {
           path = `${vip}${each[1]}`
         }
         group.tracks.push({
@@ -106,8 +108,10 @@ async function getPlayinfo(ext) {
     const { data } = await $fetch.get(url, {
         headers
     })
-    const m3u = data.match(/Vurl = '(.+?)'/)[1]
-    return jsonify({ 'urls': [m3u] })
+    const match = String(data).match(/Vurl\s*=\s*['"]([^'"]+)['"]/)
+    const m3u = match?.[1] || ''
+    if (!/^https?:\/\//i.test(m3u)) return jsonify({ urls: [] })
+    return jsonify({ urls: [m3u], headers: [headers] })
 }
 
 async function search(ext) {
@@ -122,7 +126,9 @@ async function search(ext) {
     headers
   })
   
-  argsify(data).data?.videos?.forEach( each => {
+  const payload = argsify(data) || {}
+  const videos = payload.data?.videos || payload.videos || []
+  videos.forEach( each => {
     cards.push({
       vod_id: `${each.id}`,
       vod_name: each.name,
@@ -138,4 +144,3 @@ async function search(ext) {
       list: cards,
   });
 }
-
