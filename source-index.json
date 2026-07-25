@@ -25,7 +25,9 @@
       "api": "csp_Zxzj",
       "local_file": "js/zxzj.js",
       "upstream_url": "https://raw.githubusercontent.com/fangkuia/XPTV/refs/heads/main/js/zxzj.js",
-      "upstream_blob_sha": "1dccea44b3f49a1a837a99520c155580d39745ba"
+      "upstream_blob_sha": "1dccea44b3f49a1a837a99520c155580d39745ba",
+      "active": false,
+      "disabled_reason": "player_returns_baidu_page_without_direct_media"
     },
     {
       "name": "LIBVIO",
