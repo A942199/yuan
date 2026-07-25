@@ -1,5 +1,5 @@
 let appConfig = {
-    ver: 20260318,
+    ver: 20260725,
     title: 'jianpian',
     // h5v2.cibnabg.com
     // site: 'https://ev5356.970xw.com',
@@ -421,25 +421,45 @@ async function getTracks(ext) {
     ext = JSON.parse(ext)
 
     let list = []
+    const seen = new Set()
     let id = ext.id
     let url = `${appConfig.site}/api/video/detailv2?id=${id}`
 
     const { data } = await $fetch.get(url, { headers: getHeader() })
     try {
-        JSON.parse(data).data.source_list_source.forEach((e) => {
-            if (e.source_key === 'back_source_list_p2p') return
+        const payload = argsify(data) || {}
+        const sources = payload.data?.source_list_source || []
+
+        // 前端诊断只会抽测前几条线路，优先选择实测较稳定且彼此独立的 CDN。
+        const priority = (source) => {
+            const label = `${source.source_key || ''} ${source.name || ''}`.toLowerCase()
+            if (label.includes('lz')) return 0
+            if (label.includes('sd')) return 1
+            if (label.includes('高清1') || label.includes('dytt')) return 2
+            if (label.includes('蓝光')) return 3
+            if (label.includes('vip')) return 4
+            return 5
+        }
+
+        sources.slice().sort((a, b) => priority(a) - priority(b)).forEach((e) => {
+            if (e.source_key === 'back_source_list_p2p' || !Array.isArray(e.source_list)) return
             let title = e.name
             let tracks = []
             e.source_list.forEach((item) => {
+                const playUrl = String(item.url || '').trim()
+                if (!/^https?:\/\//i.test(playUrl) || seen.has(playUrl)) return
+                seen.add(playUrl)
                 tracks.push({
-                    name: item.source_name,
-                    ext: { url: item.url },
+                    name: item.source_name || `播放${tracks.length + 1}`,
+                    ext: { url: playUrl },
                 })
             })
-            list.push({
-                title,
-                tracks,
-            })
+            if (tracks.length > 0) {
+                list.push({
+                    title: title || `线路${list.length + 1}`,
+                    tracks,
+                })
+            }
         })
     } catch (error) {
         $print(error)
@@ -454,6 +474,7 @@ async function getPlayinfo(ext) {
     let playUrl = url
     let header = getHeader()
 
+    if (!/^https?:\/\//i.test(playUrl || '')) return JSON.stringify({ urls: [] })
     return JSON.stringify({ urls: [playUrl], headers: [header] })
 }
 
@@ -489,5 +510,6 @@ function getHeader() {
         'User-Agent':
             'Mozilla/5.0 (Linux; Android 9; V2196A Build/PQ3A.190705.08211809; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/91.0.4472.114 Mobile Safari/537.36;webank/h5face;webank/1.0;netType:NETWORK_WIFI;appVersion:416;packageName:com.jp3.xg3',
         Referer: appConfig.site,
+        Origin: appConfig.site,
     }
 }
