@@ -9,7 +9,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 6
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -17,33 +17,28 @@ jobs:
           node-version: '22'
       - name: Syntax check source
         run: node --check js/ppnix.js
-      - name: Host/path matrix test
+      - name: Direct playback endpoint matrix
         shell: bash
         run: |
-          cat > /tmp/ppnix-matrix.mjs <<'NODE'
+          cat > /tmp/ppnix-play-matrix.mjs <<'NODE'
           const UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
           const urls = [
-            'https://www.ppnix.com/cn/',
-            'https://ppnix.com/cn/',
-            'https://www.ppnix.com/cn/movie/',
-            'https://ppnix.com/cn/movie/',
-            'https://www.ppnix.com/movie/',
-            'https://ppnix.com/movie/',
-            'http://www.ppnix.com/cn/movie/',
-            'http://ppnix.com/cn/movie/',
-            'https://ipfs.ppnix.com/',
-            'https://1.ppnix.com/',
+            'https://www.ppnix.com/info/m3u8/329/1.m3u8',
+            'https://www.ppnix.com/info/m3u8/329/01.m3u8',
+            'https://www.ppnix.com/info/m3u8/329/1080P.m3u8',
+            'https://www.ppnix.com/info/m3u8/key',
           ]
           async function test(url) {
             const ac=new AbortController(); const t=setTimeout(()=>ac.abort(),12000); const s=Date.now()
             try {
-              const r=await fetch(url,{redirect:'follow',signal:ac.signal,headers:{'User-Agent':UA,'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8','Accept-Language':'zh-CN,zh;q=0.9,en;q=0.8','Referer':'https://www.ppnix.com/cn/'}})
-              let text=''; try{text=await r.text()}catch{}
-              console.log('MATRIX',JSON.stringify({url,status:r.status,final:r.url,ms:Date.now()-s,bytes:text.length,server:r.headers.get('server'),cfRay:r.headers.get('cf-ray'),ct:r.headers.get('content-type'),hasMovie:/\/cn\/movie\/\d+\.html/.test(text),hasM3u8:/m3u8\s*=\s*\[/.test(text),preview:text.replace(/\s+/g,' ').slice(0,120)}))
+              const r=await fetch(url,{redirect:'follow',signal:ac.signal,headers:{'User-Agent':UA,'Accept':'application/vnd.apple.mpegurl,application/x-mpegURL,*/*','Referer':'https://www.ppnix.com/cn/tv/329.html'}})
+              let buf; try{buf=new Uint8Array(await r.arrayBuffer())}catch{buf=new Uint8Array()}
+              const text=new TextDecoder().decode(buf.slice(0,4096))
+              console.log('PLAY',JSON.stringify({url,status:r.status,final:r.url,ms:Date.now()-s,bytes:buf.length,server:r.headers.get('server'),cfRay:r.headers.get('cf-ray'),ct:r.headers.get('content-type'),extm3u:text.replace(/^\uFEFF/,'').trimStart().startsWith('#EXTM3U'),preview:text.replace(/\s+/g,' ').slice(0,180)}))
             } catch(e) {
-              console.log('MATRIX',JSON.stringify({url,error:e?.name+':'+e?.message,ms:Date.now()-s}))
+              console.log('PLAY',JSON.stringify({url,error:e?.name+':'+e?.message,ms:Date.now()-s}))
             } finally {clearTimeout(t)}
           }
           for (const u of urls) await test(u)
           NODE
-          node /tmp/ppnix-matrix.mjs
+          node /tmp/ppnix-play-matrix.mjs
