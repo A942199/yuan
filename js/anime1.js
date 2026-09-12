@@ -3,6 +3,10 @@ const cheerio = createCheerio()
 let UA =
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
 
+const ANIME_PAGE_SIZE = 20
+const BANGUMI_API = 'https://api.bgm.tv'
+const BANGUMI_UA = 'myvideo-anime1/1.0 (https://github.com/A942199/yuan)'
+
 let appConfig = {
     ver: 20260913,
     title: 'anime1',
@@ -98,6 +102,162 @@ function isNoiseTitle(name) {
     return false
 }
 
+function normalizeCoverTitle(value) {
+    return String(value || '')
+        .normalize('NFKC')
+        .toLowerCase()
+        .replace(/[\s\u3000·•・:：,，.。'"“”‘’!?！？_\-—–()（）\[\]【】<>《》~～]/g, '')
+}
+
+function stripSeasonSuffix(value) {
+    return String(value || '')
+        .replace(/\s*[\(（]\s*第?[一二三四五六七八九十0-9]+\s*季\s*[\)）]\s*$/i, '')
+        .replace(/\s+第?[一二三四五六七八九十0-9]+\s*季\s*$/i, '')
+        .trim()
+}
+
+function diceSimilarity(a, b) {
+    if (!a || !b) return 0
+    if (a === b) return 1
+    if (a.length < 2 || b.length < 2) return 0
+    const pairs = {}
+    for (let i = 0; i < a.length - 1; i++) {
+        const p = a.slice(i, i + 2)
+        pairs[p] = (pairs[p] || 0) + 1
+    }
+    let overlap = 0
+    for (let i = 0; i < b.length - 1; i++) {
+        const p = b.slice(i, i + 2)
+        if (pairs[p] > 0) {
+            overlap++
+            pairs[p]--
+        }
+    }
+    return (2 * overlap) / ((a.length - 1) + (b.length - 1))
+}
+
+function coverUrl(subject) {
+    const images = subject && subject.images
+    if (!images) return ''
+    return images.large || images.common || images.medium || images.grid || images.small || ''
+}
+
+function scoreBangumiSubject(title, subject) {
+    const rawTargets = [title, stripSeasonSuffix(title)]
+    const targets = rawTargets.map(normalizeCoverTitle).filter(Boolean)
+    const names = [subject && subject.name_cn, subject && subject.name]
+        .map(normalizeCoverTitle)
+        .filter(Boolean)
+    let best = 0
+    for (const target of targets) {
+        for (const name of names) {
+            if (target === name) return 100
+            if (target.length >= 3 && (target.includes(name) || name.includes(target))) {
+                const ratio = Math.min(target.length, name.length) / Math.max(target.length, name.length)
+                best = Math.max(best, 75 + Math.round(ratio * 20))
+            }
+            best = Math.max(best, Math.round(diceSimilarity(target, name) * 80))
+        }
+    }
+    return best
+}
+
+async function searchBangumi(title) {
+    const keywords = []
+    const addKeyword = (value) => {
+        const v = String(value || '').trim()
+        if (v && !keywords.includes(v)) keywords.push(v)
+    }
+    addKeyword(title)
+    addKeyword(stripSeasonSuffix(title))
+
+    for (const keyword of keywords) {
+        try {
+            const res = await $fetch.post(
+                `${BANGUMI_API}/v0/search/subjects?limit=6`,
+                JSON.stringify({ keyword, filter: { type: [2] } }),
+                {
+                    headers: {
+                        'User-Agent': BANGUMI_UA,
+                        Accept: 'application/json',
+                        'Content-Type': 'application/json',
+                    },
+                },
+            )
+            const payload = parseData(res.data)
+            const list = payload && Array.isArray(payload.data) ? payload.data : []
+            if (list.length) return list
+        } catch (_) {}
+
+        try {
+            const url = `${BANGUMI_API}/search/subject/${encodeURIComponent(keyword)}?type=2&responseGroup=large&max_results=6`
+            const res = await $fetch.get(url, {
+                headers: {
+                    'User-Agent': BANGUMI_UA,
+                    Accept: 'application/json',
+                },
+            })
+            const payload = parseData(res.data)
+            const list = payload && Array.isArray(payload.list) ? payload.list : []
+            if (list.length) return list
+        } catch (_) {}
+    }
+
+    return []
+}
+
+async function resolveCover(title) {
+    const key = `anime1_cover_${normalizeCoverTitle(title)}`
+    try {
+        const cached = $cache.get(key)
+        if (cached === '!') return ''
+        if (cached) return String(cached)
+    } catch (_) {}
+
+    let url = ''
+    try {
+        const list = await searchBangumi(title)
+        if (list.length) {
+            const ranked = list
+                .map((subject, index) => ({ subject, index, score: scoreBangumiSubject(title, subject) }))
+                .sort((a, b) => b.score - a.score || a.index - b.index)
+            const selected = ranked[0] && (ranked[0].score >= 45 ? ranked[0].subject : list[0])
+            url = coverUrl(selected)
+        }
+    } catch (_) {}
+
+    try {
+        $cache.set(key, url || '!')
+    } catch (_) {}
+    return url
+}
+
+async function enrichCardsWithCovers(cards) {
+    const list = Array.isArray(cards) ? cards : []
+    let cursor = 0
+    const workers = []
+    const concurrency = Math.min(5, list.length)
+
+    for (let i = 0; i < concurrency; i++) {
+        workers.push(
+            (async () => {
+                while (true) {
+                    const index = cursor++
+                    if (index >= list.length) break
+                    const card = list[index]
+                    if (!card || card.vod_pic || !card.vod_name) continue
+                    try {
+                        card.vod_pic = await resolveCover(card.vod_name)
+                    } catch (_) {}
+                }
+            })(),
+        )
+    }
+
+    await Promise.all(workers)
+    return list
+}
+
 function parseTracksFromHtml(html, tracks, seen) {
     const $ = cheerio.load(html)
     $('#main > article').each((_, e) => {
@@ -127,8 +287,7 @@ async function getConfig() {
 
 async function getCards(ext) {
     ext = argsify(ext)
-    const { page = 1 } = ext
-    if (page > 1) return jsonify({ list: [] })
+    const page = Math.max(1, Number(ext.page || ext.pg || 1))
 
     try {
         const url = appConfig.site + '/animelist.json'
@@ -137,20 +296,22 @@ async function getCards(ext) {
         })
 
         const parsed = parseData(data)
-        const cards = []
-        if (Array.isArray(parsed)) {
-            parsed.forEach((e) => {
-                if (!Array.isArray(e)) return
-                cards.push({
-                    vod_id: `${e[0]}`,
-                    vod_name: e[1] || '',
-                    vod_pic: '',
-                    vod_remarks: e[2] || '',
-                    vod_pubdate: e[3] || '',
-                    ext: { id: `${e[0]}` },
-                })
-            })
-        }
+        if (!Array.isArray(parsed)) return jsonify({ list: [] })
+
+        const start = (page - 1) * ANIME_PAGE_SIZE
+        const rows = parsed.slice(start, start + ANIME_PAGE_SIZE)
+        const cards = rows
+            .filter((e) => Array.isArray(e))
+            .map((e) => ({
+                vod_id: `${e[0]}`,
+                vod_name: e[1] || '',
+                vod_pic: '',
+                vod_remarks: e[2] || '',
+                vod_pubdate: e[3] || '',
+                ext: { id: `${e[0]}` },
+            }))
+
+        await enrichCardsWithCovers(cards)
         return jsonify({ list: cards })
     } catch (error) {
         $print(error)
@@ -217,8 +378,6 @@ async function getPlayinfo(ext) {
 
         if (!apireq) throw new Error('Anime1 data-apireq not found')
 
-        // data-apireq is already a signed/encoded Anime1 payload. Do not
-        // encodeURIComponent() it again or the API returns Signature invalid.
         const apires = await $fetch.post(api, `d=${apireq}`, {
             headers: {
                 'User-Agent': UA,
@@ -256,7 +415,8 @@ async function getPlayinfo(ext) {
 
 async function search(ext) {
     ext = argsify(ext)
-    const text = encodeURIComponent(ext.text || '')
+    const rawText = String(ext.text || '').trim()
+    const text = encodeURIComponent(rawText)
     const page = ext.page || 1
     const url = `${appConfig.site}/page/${page}?s=${text}`
     const cards = []
@@ -287,6 +447,8 @@ async function search(ext) {
                 },
             })
         })
+
+        await enrichCardsWithCovers(cards)
     } catch (error) {
         $print(error)
     }
