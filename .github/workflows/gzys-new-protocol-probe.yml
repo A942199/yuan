@@ -1,0 +1,95 @@
+name: GZYS New Protocol Probe
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/gzys-new-protocol-probe.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Run current GZYS protocol with minimal TVBox compatibility layer
+        shell: bash
+        run: |
+          set +e
+          rm -rf /tmp/tvbox
+          git clone --depth 1 https://github.com/qist/tvbox.git /tmp/tvbox
+          python -m pip install -q pycryptodome requests >/dev/null 2>&1 || true
+          mkdir -p /tmp/tvbox/base
+          cat > /tmp/tvbox/base/__init__.py <<'PY'
+          PY
+          cat > /tmp/tvbox/base/spider.py <<'PY'
+          import requests
+          class Spider:
+              def post(self, url, **kwargs): return requests.post(url, **kwargs)
+              def get(self, url, **kwargs): return requests.get(url, **kwargs)
+              def fetch(self, url, **kwargs): return requests.get(url, **kwargs)
+          PY
+          cd /tmp/tvbox
+          python - <<'PY'
+          import json, sys, os, requests
+          sys.path.insert(0, os.getcwd())
+          sys.path.insert(0, os.path.join(os.getcwd(),'py'))
+          try:
+              from py.GZYS import Spider
+              s = Spider()
+              print('AUTH_READY', bool(getattr(s,'token',None)), bool(getattr(s,'token_id',None)), 'HOST', getattr(s,'host',None))
+              cat = s.categoryContent('1', '1', False, {})
+              items = (cat or {}).get('list') or []
+              print('CATEGORY_COUNT', len(items))
+              for idx,item in enumerate(items[:3]):
+                  vid = item.get('vod_id','')
+                  print('ITEM', idx, item.get('vod_name'), vid)
+                  d = s.detailContent([vid])
+                  lst = (d or {}).get('list') or []
+                  if not lst:
+                      print('DETAIL_EMPTY'); continue
+                  v = lst[0]
+                  pu = v.get('vod_play_url','')
+                  print('PLAY_SPEC', pu[:700])
+                  if not pu or '$' not in pu:
+                      continue
+                  ep = pu.split('#')[0].split('$',1)[1]
+                  p = s.playerContent('', ep, [])
+                  print('PLAYER_KEYS', list((p or {}).keys()))
+                  print('PLAYER_URL', (p or {}).get('url',''))
+                  u = (p or {}).get('url') or ''
+                  if not u: continue
+                  for hname,headers in [
+                      ('public-play', {'User-Agent':'Lavf/57.83.100','Referer':'http://WJiZxLXA2.com/'}),
+                      ('api-header', getattr(s,'header',{})),
+                      ('none', {})
+                  ]:
+                      try:
+                          r=requests.get(u,headers=headers,timeout=15,allow_redirects=True)
+                          txt=r.text[:20000]
+                          ds=[]
+                          for line in txt.splitlines():
+                              if line.startswith('#EXTINF:'):
+                                  try: ds.append(float(line.split(':',1)[1].split(',',1)[0]))
+                                  except: pass
+                          print('MANIFEST',hname,'status',r.status_code,'type',r.headers.get('content-type'),'final',r.url,'segments',len(ds),'duration',round(sum(ds),3),'endlist',('#EXT-X-ENDLIST' in txt),'bytes',len(r.content))
+                          print('HEAD',txt[:500].replace('\n','\\n'))
+                      except Exception as e:
+                          print('FETCH_ERR',hname,repr(e))
+          except Exception as e:
+              import traceback; traceback.print_exc()
+              print('PROBE_EXCEPTION', type(e).__name__, repr(e))
+          PY
+      - name: Cleanup probe workflow
+        if: always()
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/gzys-new-protocol-probe.yml
+          git commit -m 'chore: remove one-shot gzys new protocol probe' || true
+          git push || true
