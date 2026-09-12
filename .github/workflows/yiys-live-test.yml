@@ -1,0 +1,40 @@
+name: YiYS Live Playback Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'js/yiys.js'
+      - 'scripts/test-yiys-live.mjs'
+      - '.github/workflows/yiys-live-test.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  live-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run real API to media test
+        id: live
+        continue-on-error: true
+        run: node scripts/test-yiys-live.mjs
+      - name: Print report
+        if: always()
+        run: cat yiys-live-report.json || true
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: yiys-live-report
+          path: yiys-live-report.json
+          if-no-files-found: error
+      - name: Fail if media was not verified
+        if: steps.live.outcome != 'success'
+        run: exit 1
