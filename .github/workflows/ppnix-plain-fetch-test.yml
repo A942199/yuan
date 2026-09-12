@@ -1,0 +1,97 @@
+name: PPnix Plain Fetch Test
+
+on:
+  push:
+    paths:
+      - '.github/workflows/ppnix-plain-fetch-test.yml'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check source
+        run: node --check js/ppnix.js
+      - name: Strict plain-fetch test
+        shell: bash
+        run: |
+          cat > /tmp/ppnix-test.mjs <<'NODE'
+          const BASE = 'https://www.ppnix.com'
+          const H = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+            'Referer': 'https://www.ppnix.com/cn/',
+          }
+
+          async function get(url, timeout=30000, extra={}) {
+            const ac = new AbortController()
+            const t = setTimeout(() => ac.abort(), timeout)
+            const started = Date.now()
+            try {
+              const r = await fetch(url, {headers: {...H, ...extra}, redirect:'follow', signal:ac.signal})
+              const text = await r.text()
+              console.log('FETCH', JSON.stringify({url, status:r.status, final:r.url, ms:Date.now()-started, ct:r.headers.get('content-type'), bytes:text.length, cfRay:r.headers.get('cf-ray'), server:r.headers.get('server')}))
+              console.log('PREVIEW', text.replace(/\s+/g,' ').slice(0,220))
+              return {r,text}
+            } catch (e) {
+              console.log('FETCH_ERROR', JSON.stringify({url, ms:Date.now()-started, name:e?.name, message:e?.message}))
+              return null
+            } finally { clearTimeout(t) }
+          }
+
+          function m3u8Values(html) {
+            const m = String(html||'').match(/m3u8\s*=\s*\[([\s\S]*?)\]/)
+            if (!m) return []
+            const out=[]; const re=/['\"]([^'\"]+)['\"]/g; let x
+            while ((x=re.exec(m[1]))) if (x[1]?.trim()) out.push(x[1].trim())
+            if (out.length) return out
+            return m[1].split(',').map(x=>x.replace(/^['\"]|['\"]$/g,'').trim()).filter(Boolean)
+          }
+
+          let failures = []
+          const list = await get(BASE + '/cn/movie/', 35000)
+          if (!list || list.r.status !== 200 || !/\/cn\/movie\/\d+\.html/.test(list.text)) failures.push('movie_list_unusable')
+
+          const detail = await get(BASE + '/cn/tv/329.html', 35000)
+          if (!detail || detail.r.status !== 200) {
+            failures.push('detail_unreachable')
+          } else {
+            const vals = m3u8Values(detail.text)
+            console.log('M3U8_VALUES', JSON.stringify({count:vals.length, sample:vals.slice(0,3)}))
+            if (!vals.length) {
+              failures.push('no_m3u8_values')
+            } else {
+              const play = `${BASE}/info/m3u8/329/${encodeURIComponent(vals[0])}.m3u8`
+              const man = await get(play, 35000, {'Accept':'application/vnd.apple.mpegurl,application/x-mpegURL,*/*'})
+              if (!man || man.r.status !== 200 || !man.text.replace(/^\uFEFF/,'').trimStart().startsWith('#EXTM3U')) {
+                failures.push('manifest_unusable')
+              } else {
+                const lines = man.text.split(/\r?\n/).map(x=>x.trim()).filter(Boolean)
+                const media = lines.find(x=>!x.startsWith('#'))
+                const key = man.text.match(/#EXT-X-KEY:[^\n]*URI=[\"']([^\"']+)/i)?.[1] || ''
+                console.log('MANIFEST_OK', JSON.stringify({url:play, media, key}))
+                if (key) {
+                  const keyUrl = new URL(key, play).toString()
+                  const kr = await get(keyUrl, 25000, {'Accept':'*/*'})
+                  if (!kr || kr.r.status >= 400) failures.push('key_unusable')
+                }
+                if (media) {
+                  const mediaUrl = new URL(media, play).toString()
+                  const mr = await get(mediaUrl, 25000, {'Accept':'*/*','Range':'bytes=0-65535'})
+                  if (!mr || ![200,206].includes(mr.r.status)) failures.push('media_unusable')
+                } else failures.push('no_media_line')
+              }
+            }
+          }
+
+          await get('https://1.ppnix.com/', 15000)
+          console.log('RESULT', JSON.stringify({ok:failures.length===0, failures}))
+          if (failures.length) process.exitCode = 1
+          NODE
+          node /tmp/ppnix-test.mjs
