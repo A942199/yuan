@@ -23,19 +23,33 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
-          import re
+
           p = Path('js/gzys.js')
           s = p.read_text(encoding='utf-8')
-          pattern = re.compile(r"(\{'urls':\[[^\]]+\])\}")
-          matches = list(pattern.finditer(s))
-          if len(matches) != 1:
-              raise SystemExit(f'expected exactly one getPlayinfo urls object, got {len(matches)}')
-          m = matches[0]
-          replacement = m.group(1) + ",'headers':[{'User-Agent':'Lavf/57.83.100','Referer':'http://WJiZxLXA2.com/'}]}"
-          s = s[:m.start()] + replacement + s[m.end():]
+          fn_start = s.find('async function getPlayinfo')
+          fn_end = s.find('async function search', fn_start)
+          if fn_start < 0 or fn_end < 0:
+              raise SystemExit('getPlayinfo/search function boundary not found')
+
+          seg = s[fn_start:fn_end]
+          marker = "(jsonify,{'urls':["
+          if seg.count(marker) != 1:
+              raise SystemExit(f'expected one play result marker, got {seg.count(marker)}')
+          marker_at = seg.find(marker)
+          close_at = seg.find(']});', marker_at)
+          if close_at < 0:
+              raise SystemExit('play result closing marker not found')
+
+          addition = ",'headers':[{'User-Agent':'Lavf/57.83.100','Referer':'http://WJiZxLXA2.com/'}]"
+          seg = seg[:close_at + 1] + addition + seg[close_at + 1:]
+          s = s[:fn_start] + seg + s[fn_end:]
           p.write_text(s, encoding='utf-8')
           PY
           node --check js/gzys.js
+      - name: Verify playback header patch
+        run: |
+          grep -F "Lavf/57.83.100" js/gzys.js
+          grep -F "http://WJiZxLXA2.com/" js/gzys.js
       - name: Commit fix
         run: |
           git config user.name 'github-actions[bot]'
