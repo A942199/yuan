@@ -1,0 +1,63 @@
+name: Apply GZYS Playback Param Fix
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/apply-gzys-param-resolution-fix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Patch GZYS play params
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('js/gzys.js')
+          s = p.read_text(encoding='utf-8')
+          fn_start = s.find('async function getPlayinfo')
+          fn_end = s.find('async function search', fn_start)
+          if fn_start < 0 or fn_end < 0:
+              raise SystemExit('getPlayinfo/search boundary not found')
+
+          seg = s[fn_start:fn_end]
+
+          old1 = "_0x1924bc[_0x36a80a]=_0x54a280[_0x29f201(0x1a1,'7&(x')](_0x4dd5a7,'');"
+          new1 = "_0x1924bc[_0x36a80a==='vod_d_id'?'vod_id':_0x36a80a]=_0x54a280[_0x29f201(0x1a1,'7&(x')](_0x4dd5a7,'');"
+          if seg.count(old1) != 1:
+              raise SystemExit(f'vod_d_id parser target count={seg.count(old1)}')
+          seg = seg.replace(old1, new1, 1)
+
+          old2 = "const _0x3327ac=_0x54a280[_0x4509d1(0x267,'z84Y')](_0x5b866c,_0x47bb79[_0x3da0ff][_0x4509d1(0x1aa,'m&s7')]),_0x22157b=await _0x54a280['VxkFr'](apiRequest,_0x3327ac,_0x54a280[_0x4509d1(0x27d,'0c7X')]);"
+          new2 = "const _0x3327ac=_0x54a280[_0x4509d1(0x267,'z84Y')](_0x5b866c,_0x47bb79[_0x3da0ff][_0x4509d1(0x1aa,'m&s7')]);_0x3327ac.resolution=_0x3da0ff;const _0x22157b=await _0x54a280['VxkFr'](apiRequest,_0x3327ac,_0x54a280[_0x4509d1(0x27d,'0c7X')]);"
+          if seg.count(old2) != 1:
+              raise SystemExit(f'resolution target count={seg.count(old2)}')
+          seg = seg.replace(old2, new2, 1)
+
+          s = s[:fn_start] + seg + s[fn_end:]
+          p.write_text(s, encoding='utf-8')
+          PY
+          node --check js/gzys.js
+          grep -F "_0x36a80a==='vod_d_id'?'vod_id':_0x36a80a" js/gzys.js
+          grep -F "_0x3327ac.resolution=_0x3da0ff" js/gzys.js
+      - name: Commit fix
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add js/gzys.js
+          git rm .github/workflows/apply-gzys-param-resolution-fix.yml
+          git commit -m 'fix: normalize gzys play params and resolution'
+          git push
