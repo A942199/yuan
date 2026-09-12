@@ -52,7 +52,7 @@
       "name": "影视天堂",
       "type": 3,
       "api": "csp_ystt",
-      "ext": "https://raw.githubusercontent.com/fangkuia/XPTV/refs/heads/main/js/ystt.js"
+      "ext": "https://raw.githubusercontent.com/A942199/yuan/refs/heads/main/js/ystt.js"
     },
     {
       "name": "荐片",
