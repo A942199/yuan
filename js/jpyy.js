@@ -385,18 +385,78 @@ async function getConfig() {
     return JSON.stringify(appConfig)
 }
 
+function parseExt(ext) {
+    if (ext == null || ext === '') return {}
+    if (typeof ext === 'string') {
+        try {
+            return JSON.parse(ext)
+        } catch (e) {
+            return {}
+        }
+    }
+    return ext
+}
+
+function parseResponseData(raw) {
+    let parsed = raw
+    if (typeof raw === 'string') {
+        try {
+            parsed = JSON.parse(raw)
+        } catch (e) {
+            return null
+        }
+    }
+    if (!parsed || typeof parsed !== 'object') return null
+    return parsed.data ?? null
+}
+
+function safeScore(value) {
+    const n = Number(value)
+    return Number.isFinite(n) ? n.toFixed(1) : ''
+}
+
+function safeText(value) {
+    return value == null ? '' : String(value)
+}
+
+function vodToCard(e) {
+    if (!e || typeof e !== 'object') return null
+
+    const id = e.vodId ?? e.vod_id ?? e.id
+    const name = safeText(e.vodName ?? e.vod_name ?? e.name ?? e.title).trim()
+    if (!id || !name || name.includes('预告')) return null
+
+    const remarks = safeText(e.vodRemarks ?? e.vod_remarks)
+    const version = safeText(e.vodVersion ?? e.vod_version)
+
+    return {
+        vod_id: String(id),
+        vod_name: name,
+        vod_pic: safeText(e.vodPic ?? e.vod_pic),
+        vod_remarks: safeScore(e.vodDoubanScore ?? e.vod_douban_score),
+        vod_duration: remarks.replace(/\|.*/, '') || version,
+        vod_pubdate: safeText(e.vodPubdate ?? e.vod_pubdate ?? e.vodYear ?? e.vod_year),
+        ext: { id: id },
+    }
+}
+
+function toQueryString(obj, encodeValues = false) {
+    return Object.keys(obj)
+        .filter((k) => obj[k] != null && obj[k] !== '')
+        .map((k) => {
+            const value = String(obj[k])
+            return `${k}=${encodeValues ? encodeURIComponent(value) : value}`
+        })
+        .join('&')
+}
+
 async function getCards(ext) {
-    ext = JSON.parse(ext)
-    let cards = []
-    let { id, page = 1 } = ext
+    ext = parseExt(ext)
+    const cards = []
+    const { id, page = 1 } = ext
 
     const { type = '', class: v_class = '', area = '', year = '', lang = '', sort = '1' } = ext?.filters || {}
 
-    const toQueryString = (obj) =>
-        Object.keys(obj)
-            .filter((k) => obj[k] != null && obj[k] !== '')
-            .map((k) => `${k}=${obj[k]}`)
-            .join('&')
     const params = {
         area: area || '',
         filterStatus: '1',
@@ -410,112 +470,157 @@ async function getCards(ext) {
         v_class: v_class || '',
         year: year || '',
     }
-    let url = `${appConfig.site}/api/mw-movie/anonymous/video/list?${toQueryString(params)}`
 
-    const headers = getHeader(url)
+    const rawQuery = toQueryString(params)
+    const requestQuery = toQueryString(params, true)
+    const url = `${appConfig.site}/api/mw-movie/anonymous/video/list?${requestQuery}`
+    const headers = getHeader(rawQuery)
 
     const response = await $fetch.get(url, { headers: headers })
-    const data = response.data
+    const payload = parseResponseData(response?.data)
+    const list = Array.isArray(payload?.list) ? payload.list : []
 
-    JSON.parse(data).data.list.forEach((e) => {
-        const name = e.vodName
-        if (name.includes('预告')) return
-        const id = e.vodId
-        cards.push({
-            vod_id: id.toString(),
-            vod_name: name,
-            vod_pic: e.vodPic,
-            vod_remarks: e.vodDoubanScore.toFixed(1),
-            vod_duration: e.vodRemarks.replace(/\|.*/, '') || e.vodVersion,
-            vod_pubdate: e.vodPubdate,
-            ext: { id: id },
-        })
+    list.forEach((e) => {
+        const card = vodToCard(e)
+        if (card) cards.push(card)
     })
 
-    return JSON.stringify({ list: cards, filter: filterList[id] })
+    return JSON.stringify({ list: cards, filter: filterList[id] || [] })
 }
 
 async function getTracks(ext) {
-    ext = JSON.parse(ext)
+    ext = parseExt(ext)
 
-    let tracks = []
-    let id = ext.id
-    let url = appConfig.site.replace('www', 'm') + '/detail/' + id
+    const id = ext.id
+    if (!id) return JSON.stringify({ list: [] })
 
-    const { data } = await $fetch.get(url, { headers: { 'User-Agent': UA } })
+    // 使用 JSON 详情接口，不再抓 m 站 HTML + 正则提取 episodeList。
+    // 页面结构改变、Cloudflare HTML、换行等都不会再直接导致 match()[0] 崩溃。
+    const params = { id: id }
+    const rawQuery = toQueryString(params)
+    const requestQuery = toQueryString(params, true)
+    const url = `${appConfig.site}/api/mw-movie/anonymous/video/detail?${requestQuery}`
+    const headers = getHeader(rawQuery)
 
-    const nidData = '{"' + data.match(/episodeList.*?\[.*?\}\]\}/)[0].replace(/\\\"/g, '"')
-    JSON.parse(nidData).episodeList.forEach((e) => {
-        tracks.push({
-            name: e.name,
-            ext: { id: id, nid: e.nid },
+    const response = await $fetch.get(url, { headers: headers })
+    const detail = parseResponseData(response?.data) || {}
+
+    const episodes = Array.isArray(detail.episodeList)
+        ? detail.episodeList
+        : Array.isArray(detail.episodelist)
+          ? detail.episodelist
+          : []
+
+    const tracks = episodes
+        .map((e, index) => {
+            if (!e || e.nid == null) return null
+            return {
+                name: safeText(e.name).trim() || `第${index + 1}集`,
+                ext: { id: id, nid: e.nid },
+            }
         })
-    })
+        .filter(Boolean)
+
+    if (!tracks.length) return JSON.stringify({ list: [] })
 
     return JSON.stringify({ list: [{ title: '默认分组', tracks }] })
 }
 
 async function getPlayinfo(ext) {
-    ext = JSON.parse(ext)
-    let { id, nid } = ext
-    const url = `${appConfig.site}/api/mw-movie/anonymous/v2/video/episode/url?id=${id}&nid=${nid}`
-    const headers = getHeader(url)
+    ext = parseExt(ext)
+    const { id, nid } = ext
+    if (!id || nid == null) return JSON.stringify({ urls: [] })
 
-    const { data } = await $fetch.get(url, { headers: headers })
+    // 当前站点实现需要 clientType=1。
+    const params = {
+        clientType: '1',
+        id: id,
+        nid: nid,
+    }
+    const rawQuery = toQueryString(params)
+    const requestQuery = toQueryString(params, true)
+    const url = `${appConfig.site}/api/mw-movie/anonymous/v2/video/episode/url?${requestQuery}`
+    const headers = getHeader(rawQuery)
 
-    let playUrl = JSON.parse(data).data.list[0].url
+    const response = await $fetch.get(url, { headers: headers })
+    const payload = parseResponseData(response?.data)
+    const list = Array.isArray(payload?.list) ? payload.list : []
 
-    return JSON.stringify({ urls: [playUrl] })
+    const urls = list
+        .map((item) => safeText(item?.url).trim())
+        .filter((url) => /^https?:\/\//i.test(url))
+
+    // myvideo 的 CSP 播放桥会把这里的 headers 带到媒体代理请求。
+    const mediaHeaders = {
+        'User-Agent': UA,
+        Origin: appConfig.site,
+        Referer: appConfig.site.replace(/\/+$/, '') + '/',
+    }
+
+    return JSON.stringify({
+        urls: urls,
+        headers: mediaHeaders,
+    })
 }
 
 async function search(ext) {
-    ext = JSON.parse(ext)
-    let cards = []
+    ext = parseExt(ext)
+    const cards = []
 
-    const text = ext.text
-    const page = ext.page || 1
-    const url = `${appConfig.site}/api/mw-movie/anonymous/video/searchByWordPageable?keyword=${encodeURIComponent(
-        text,
-    )}&pageNum=${page}&pageSize=12&type=false`
-    const key = `searchByWordPageable?keyword=${text}&pageNum=${page}&pageSize=12&type=false`
-    const headers = getHeader(key)
+    const text = safeText(ext.text).trim()
+    const page = Number(ext.page || 1) || 1
+    if (!text) return JSON.stringify({ list: [] })
 
-    const { data } = await $fetch.get(url, { headers: headers })
+    // 新版接口使用 searchByWord + sourceCode=1。
+    // 签名仍按未 URL 编码的参数值计算，请求 URL 再单独编码。
+    const params = {
+        keyword: text,
+        pageNum: page,
+        pageSize: '12',
+        sourceCode: '1',
+    }
+    const rawQuery = toQueryString(params)
+    const requestQuery = toQueryString(params, true)
+    const url = `${appConfig.site}/api/mw-movie/anonymous/video/searchByWord?${requestQuery}`
+    const headers = getHeader(rawQuery)
 
-    JSON.parse(data).data.list.forEach((e) => {
-        const id = e.vodId
-        cards.push({
-            vod_id: id.toString(),
-            vod_name: e.vodName,
-            vod_pic: e.vodPic,
-            vod_remarks: e.vodDoubanScore.toFixed(1),
-            vod_duration: e.vodRemarks.replace(/\|.*/, '') || e.vodVersion,
-            vod_pubdate: e.vodPubdate,
-            ext: { id: id },
-        })
+    const response = await $fetch.get(url, { headers: headers })
+    const payload = parseResponseData(response?.data)
+
+    const list = Array.isArray(payload?.result?.list)
+        ? payload.result.list
+        : Array.isArray(payload?.list)
+          ? payload.list
+          : []
+
+    list.forEach((e) => {
+        const card = vodToCard(e)
+        if (card) cards.push(card)
     })
 
     return JSON.stringify({ list: cards })
 }
 
-function getHeader(url) {
+function getHeader(queryOrUrl) {
     const signKey = 'cb808529bae6b6be45ecfab29a4889bc'
-    const dataStr = url.split('?')[1]
+    const input = safeText(queryOrUrl)
+    const dataStr = input.includes('?') ? input.slice(input.indexOf('?') + 1) : input.replace(/^\?/, '')
     const t = Date.now()
     const signStr = dataStr + `&key=${signKey}` + `&t=${t}`
 
     function getUUID() {
-        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (e) =>
-            ('x' === e ? (16 * Math.random()) | 0 : 'r&0x3' | '0x8').toString(16),
-        )
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+            const r = (Math.random() * 16) | 0
+            const v = c === 'x' ? r : (r & 0x3) | 0x8
+            return v.toString(16)
+        })
     }
 
-    const headers = {
+    return {
         'User-Agent': UA,
+        Accept: 'application/json, text/plain, */*',
         deviceId: getUUID(),
         t: t.toString(),
         sign: CryptoJS.SHA1(CryptoJS.MD5(signStr).toString()).toString(),
     }
-
-    return headers
 }
