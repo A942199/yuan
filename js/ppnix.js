@@ -209,6 +209,12 @@ async function getTracks(ext) {
     const cid = html.match(/classid\s*=\s*(\d+)/)
     if (cid) isTv = cid[1] === '2'
 
+    // PPnix detail-page id and playback infoid are not guaranteed to be identical.
+    // Prefer the explicit infoid emitted by the page; keep the URL id only as a
+    // compatibility fallback for older pages.
+    const infoIdMatch = html.match(/infoid\s*=\s*['"]?(\d+)/i)
+    const infoId = infoIdMatch ? infoIdMatch[1] : String(id)
+
     const values = parseM3u8Values(html)
     if (!values.length) return jsonify({ code: 0, msg: 'No playback found' })
 
@@ -225,10 +231,10 @@ async function getTracks(ext) {
     const title = $('h1.product-title').first().text().trim() || id
 
     const tracks = values.map((v) => {
-        const m3u8Url = `${$base_url}/info/m3u8/${id}/${encodeURIComponent(v)}.m3u8`
+        const m3u8Url = `${$base_url}/info/m3u8/${infoId}/${encodeURIComponent(v)}.m3u8`
         const subs = {}
         subLangs.forEach((lang) => {
-            subs[lang] = `${$base_url}/info/subtitle/${id}/${encodeURIComponent(v)}/${lang}.srt`
+            subs[lang] = `${$base_url}/info/subtitle/${infoId}/${encodeURIComponent(v)}/${lang}.srt`
         })
         return {
             name: isTv ? `第${v}集` : v,
@@ -247,6 +253,7 @@ async function getTracks(ext) {
         code: 1,
         msg: 'success',
         id,
+        infoId,
         title,
         list: [{ title: '正片', tracks }],
     })
