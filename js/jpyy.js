@@ -21,6 +21,62 @@ let appConfig = {
         { name: '动漫', ext: { id: 4 } },
     ],
 }
+
+const FALLBACK_SITES = [
+    'https://www.jiabaide.cn',
+    'https://www.hkybqufgh.com',
+    'https://www.sizhengxt.com',
+    'https://www.sdzhgt.com',
+    'https://m.9zhoukj.com',
+    'https://m.cqzuoer.com',
+    'https://www.hellosht52bwb.com',
+    'https://hnytxj.com',
+]
+
+let activeSite = ''
+
+function normalizeSite(site) {
+    return String(site || '').trim().replace(/\/+$/, '')
+}
+
+function getCandidateSites() {
+    const configured = String(appConfig.site || '')
+        .split(',')
+        .map(normalizeSite)
+        .filter(Boolean)
+
+    const all = configured.concat(FALLBACK_SITES.map(normalizeSite))
+    return all.filter((site, index) => site && all.indexOf(site) === index)
+}
+
+async function signedGet(path, params = {}) {
+    const rawQuery = toQueryString(params)
+    const requestQuery = toQueryString(params, true)
+    const suffix = requestQuery ? `?${requestQuery}` : ''
+    const headers = getHeader(rawQuery)
+    const sites = getCandidateSites()
+    let lastError = null
+
+    for (const site of sites) {
+        try {
+            const response = await $fetch.get(`${site}${path}${suffix}`, { headers })
+            // API 正常时必须是 JSON；HTML/验证页/空响应自动尝试备用域名。
+            if (typeof response?.data === 'string') {
+                try {
+                    JSON.parse(response.data)
+                } catch (e) {
+                    throw new Error('invalid_json_response')
+                }
+            }
+            activeSite = site
+            return { response, site }
+        } catch (e) {
+            lastError = e
+        }
+    }
+
+    throw lastError || new Error('all_sites_failed')
+}
 const filterList = {
     1: [
         {
@@ -471,12 +527,7 @@ async function getCards(ext) {
         year: year || '',
     }
 
-    const rawQuery = toQueryString(params)
-    const requestQuery = toQueryString(params, true)
-    const url = `${appConfig.site}/api/mw-movie/anonymous/video/list?${requestQuery}`
-    const headers = getHeader(rawQuery)
-
-    const response = await $fetch.get(url, { headers: headers })
+    const { response } = await signedGet('/api/mw-movie/anonymous/video/list', params)
     const payload = parseResponseData(response?.data)
     const list = Array.isArray(payload?.list) ? payload.list : []
 
@@ -497,12 +548,7 @@ async function getTracks(ext) {
     // 使用 JSON 详情接口，不再抓 m 站 HTML + 正则提取 episodeList。
     // 页面结构改变、Cloudflare HTML、换行等都不会再直接导致 match()[0] 崩溃。
     const params = { id: id }
-    const rawQuery = toQueryString(params)
-    const requestQuery = toQueryString(params, true)
-    const url = `${appConfig.site}/api/mw-movie/anonymous/video/detail?${requestQuery}`
-    const headers = getHeader(rawQuery)
-
-    const response = await $fetch.get(url, { headers: headers })
+    const { response } = await signedGet('/api/mw-movie/anonymous/video/detail', params)
     const detail = parseResponseData(response?.data) || {}
 
     const episodes = Array.isArray(detail.episodeList)
@@ -537,12 +583,7 @@ async function getPlayinfo(ext) {
         id: id,
         nid: nid,
     }
-    const rawQuery = toQueryString(params)
-    const requestQuery = toQueryString(params, true)
-    const url = `${appConfig.site}/api/mw-movie/anonymous/v2/video/episode/url?${requestQuery}`
-    const headers = getHeader(rawQuery)
-
-    const response = await $fetch.get(url, { headers: headers })
+    const { response, site } = await signedGet('/api/mw-movie/anonymous/v2/video/episode/url', params)
     const payload = parseResponseData(response?.data)
     const list = Array.isArray(payload?.list) ? payload.list : []
 
@@ -551,10 +592,11 @@ async function getPlayinfo(ext) {
         .filter((url) => /^https?:\/\//i.test(url))
 
     // myvideo 的 CSP 播放桥会把这里的 headers 带到媒体代理请求。
+    const mediaSite = normalizeSite(site || activeSite || getCandidateSites()[0])
     const mediaHeaders = {
         'User-Agent': UA,
-        Origin: appConfig.site,
-        Referer: appConfig.site.replace(/\/+$/, '') + '/',
+        Origin: mediaSite,
+        Referer: mediaSite + '/',
     }
 
     return JSON.stringify({
@@ -579,12 +621,7 @@ async function search(ext) {
         pageSize: '12',
         sourceCode: '1',
     }
-    const rawQuery = toQueryString(params)
-    const requestQuery = toQueryString(params, true)
-    const url = `${appConfig.site}/api/mw-movie/anonymous/video/searchByWord?${requestQuery}`
-    const headers = getHeader(rawQuery)
-
-    const response = await $fetch.get(url, { headers: headers })
+    const { response } = await signedGet('/api/mw-movie/anonymous/video/searchByWord', params)
     const payload = parseResponseData(response?.data)
 
     const list = Array.isArray(payload?.result?.list)
