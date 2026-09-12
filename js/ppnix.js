@@ -58,9 +58,86 @@ function buildListUrl(cat, type, country, year, page) {
     return `${$base_url}/cn/${cat}/`
 }
 
-// async function getLocalInfo() {
-//     return jsonify({ ver: 1, name: 'PPnix', api: 'csp_ppnix', type: 2 })
-// }
+function absoluteUrl(value) {
+    const raw = String(value || '').trim()
+    if (!raw) return ''
+    if (/^https?:\/\//i.test(raw)) return raw
+    if (raw.startsWith('//')) return 'https:' + raw
+    try {
+        return new URL(raw, $base_url).toString()
+    } catch (e) {
+        return raw
+    }
+}
+
+function responseHtml(resp) {
+    if (typeof resp === 'string') return resp
+    return String((resp && resp.data) || '')
+}
+
+function validateHtmlResponse(resp, url) {
+    const status = Number((resp && resp.status) || 200)
+    const html = responseHtml(resp)
+    if (status >= 400) throw new Error(`ppnix_http_${status}:${url}`)
+    if (!html.trim()) throw new Error(`ppnix_empty_response:${url}`)
+
+    const sample = html.slice(0, 20000).toLowerCase()
+    if (
+        /error code:\s*52\d/i.test(html) ||
+        sample.includes('<title>just a moment...</title>') ||
+        sample.includes('/cdn-cgi/challenge-platform') ||
+        sample.includes('cf_chl_opt')
+    ) {
+        throw new Error(`ppnix_cloudflare_block:${url}`)
+    }
+    return html
+}
+
+async function fetchHtml(url) {
+    const resp = await $fetch.get(url, { headers: $headers })
+    return validateHtmlResponse(resp, url)
+}
+
+function parseM3u8Values(html) {
+    const match = String(html || '').match(/m3u8\s*=\s*\[([\s\S]*?)\]/)
+    if (!match) return []
+
+    const raw = match[1]
+    const quoted = []
+    const re = /['"]([^'"]+)['"]/g
+    let m
+    while ((m = re.exec(raw))) {
+        const value = String(m[1] || '').trim()
+        if (value) quoted.push(value)
+    }
+    if (quoted.length) return quoted
+
+    return raw
+        .split(',')
+        .map((s) => s.replace(/^['"]|['"]$/g, '').trim())
+        .filter(Boolean)
+}
+
+function detailUrlFromArgs(args, id) {
+    const raw = String((args && args.url) || '').trim()
+    if (raw) {
+        try {
+            const u = new URL(raw, $base_url)
+            const host = u.hostname.toLowerCase()
+            const match = u.pathname.match(/^\/cn\/(movie|tv)\/(\d+)\.html$/)
+            if (
+                (host === 'www.ppnix.com' || host === 'ppnix.com') &&
+                match &&
+                match[2] === String(id)
+            ) {
+                return { url: `${$base_url}${u.pathname}`, type: match[1] }
+            }
+        } catch (e) {}
+    }
+
+    const type = args && (args.type === 'tv' || args.type === 'movie') ? args.type : ''
+    return type ? { url: `${$base_url}/cn/${type}/${id}.html`, type } : null
+}
 
 async function getConfig() {
     return jsonify({
@@ -80,24 +157,26 @@ async function getCards(ext) {
     const { type = '', country = '', year = '' } = filters
 
     const listUrl = buildListUrl(cat, type, country, year, page)
-    const { data: html = '' } = await $fetch.get(listUrl, { headers: $headers })
+    const html = await fetchHtml(listUrl)
 
     const $ = cheerio.load(html)
     const list = []
     $('a.thumbnail').each((_, el) => {
         const href = $(el).attr('href') || ''
-        const m = href.match(/\/cn\/(?:movie|tv)\/(\d+)\.html/)
+        const m = href.match(/\/cn\/(movie|tv)\/(\d+)\.html/)
         if (!m) return
+        const itemType = m[1]
+        const id = m[2]
         list.push({
-            vod_id: m[1],
-            vod_name: $(el).find('img.thumb').attr('alt') || m[1],
-            vod_pic: $(el).find('img.thumb').attr('src') || '',
+            vod_id: id,
+            vod_name: $(el).find('img.thumb').attr('alt') || id,
+            vod_pic: absoluteUrl($(el).find('img.thumb').attr('src') || ''),
             vod_remarks: '',
-            ext: { id: m[1], url: `${$base_url}/cn/${cat}/${m[1]}.html` },
+            ext: { id, type: itemType, url: `${$base_url}/cn/${itemType}/${id}.html` },
         })
     })
 
-    return jsonify({ list, filter: filterList[cat] })
+    return jsonify({ list, filter: filterList[cat] || [] })
 }
 
 async function getTracks(ext) {
@@ -105,39 +184,43 @@ async function getTracks(ext) {
     const id = args.id
     if (!id) return jsonify({ code: 0, msg: 'Missing id' })
 
-    let url = `${$base_url}/cn/movie/${id}.html`
-    let resp = await $fetch.get(url, { headers: $headers })
-    let html = typeof resp === 'string' ? resp : resp.data || ''
+    let exact = detailUrlFromArgs(args, id)
+    let html = ''
+    let url = ''
     let isTv = false
 
-    if (!html.includes('m3u8=')) {
-        url = `${$base_url}/cn/tv/${id}.html`
-        resp = await $fetch.get(url, { headers: $headers })
-        html = typeof resp === 'string' ? resp : resp.data || ''
-        isTv = true
+    if (exact) {
+        url = exact.url
+        isTv = exact.type === 'tv'
+        html = await fetchHtml(url)
+    } else {
+        // Legacy callers may only pass id. Keep the old movie -> tv fallback, but
+        // only switch type after a successful HTML response that genuinely lacks
+        // playback data. Network/Cloudflare errors are surfaced instead of hidden.
+        url = `${$base_url}/cn/movie/${id}.html`
+        html = await fetchHtml(url)
+        if (!parseM3u8Values(html).length) {
+            url = `${$base_url}/cn/tv/${id}.html`
+            html = await fetchHtml(url)
+            isTv = true
+        }
     }
 
-    const cid = html.match(/classid=(\d+)/)
+    const cid = html.match(/classid\s*=\s*(\d+)/)
     if (cid) isTv = cid[1] === '2'
 
-    const m3u8Match = html.match(/m3u8=\[([^\]]+)\]/)
-    if (!m3u8Match) return jsonify({ code: 0, msg: 'No playback found' })
+    const values = parseM3u8Values(html)
+    if (!values.length) return jsonify({ code: 0, msg: 'No playback found' })
 
-    const values = m3u8Match[1]
-        .replace(/'/g, '')
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean)
-
-    const subMatch = html.match(/sub='\|([^|]*)\|([^|]*)\|([^|]*)\|'/)
+    const subMatch = html.match(/sub\s*=\s*['"]\|([^|]*)\|([^|]*)\|([^|]*)\|['"]/)
     const subLangs = []
-    if (subMatch)
-        [1, 2, 3].forEach((i) => {
+    if (subMatch) {
+        ;[1, 2, 3].forEach((i) => {
             if (subMatch[i]) subLangs.push(subMatch[i])
         })
+    }
 
     const subLangNames = { cn: '簡體中文', tw: '繁體中文', en: 'English' }
-
     const $ = cheerio.load(html)
     const title = $('h1.product-title').first().text().trim() || id
 
@@ -150,7 +233,13 @@ async function getTracks(ext) {
         return {
             name: isTv ? `第${v}集` : v,
             url: m3u8Url,
-            ext: { url: m3u8Url, encrypt: 2, keyUrl: `${$base_url}/info/m3u8/key`, subs, subNames: subLangNames },
+            ext: {
+                url: m3u8Url,
+                encrypt: 2,
+                keyUrl: `${$base_url}/info/m3u8/key`,
+                subs,
+                subNames: subLangNames,
+            },
         }
     })
 
@@ -165,8 +254,8 @@ async function getTracks(ext) {
 
 async function getPlayinfo(ext) {
     const args = argsify(ext)
-    const url = args.url
-    if (!url) return jsonify({ urls: [] })
+    const url = String(args.url || '').trim()
+    if (!/^https?:\/\//i.test(url)) return jsonify({ urls: [] })
 
     const subtitles = []
     const subs = args.subs || {}
@@ -177,7 +266,10 @@ async function getPlayinfo(ext) {
 
     const result = {
         urls: [url],
-        headers: [{ 'User-Agent': $headers['User-Agent'], Referer: `${$base_url}/` }],
+        headers: {
+            'User-Agent': $headers['User-Agent'],
+            Referer: `${$base_url}/`,
+        },
     }
     if (subtitles.length) result.subtitles = subtitles
 
@@ -186,27 +278,26 @@ async function getPlayinfo(ext) {
 
 async function search(ext) {
     const args = argsify(ext)
-    const keyword = args.text || args.wd || args.keyword || ''
+    const keyword = String(args.text || args.wd || args.keyword || '').trim()
     if (!keyword) return jsonify({ code: 0, msg: 'Missing keyword' })
 
     const searchUrl = `${$base_url}/cn/search/${encodeURIComponent(keyword)}--.html`
-    const resp = await $fetch.get(searchUrl, { headers: $headers })
-    const html = typeof resp === 'string' ? resp : resp.data || ''
+    const html = await fetchHtml(searchUrl)
 
     const $ = cheerio.load(html)
     const list = []
     $('a.thumbnail').each((_, el) => {
-        const href = $(el).attr('href')
-        const match = href && href.match(/\/cn\/(movie|tv)\/(\d+)\.html/)
+        const href = $(el).attr('href') || ''
+        const match = href.match(/\/cn\/(movie|tv)\/(\d+)\.html/)
         if (!match) return
-        const type = match[1],
-            id = match[2]
+        const type = match[1]
+        const id = match[2]
         list.push({
             vod_id: id,
             vod_name: $(el).find('img.thumb').attr('alt') || id,
-            vod_pic: $(el).find('img.thumb').attr('src') || '',
+            vod_pic: absoluteUrl($(el).find('img.thumb').attr('src') || ''),
             vod_remarks: '',
-            ext: { id, url: `${$base_url}/cn/${type}/${id}.html` },
+            ext: { id, type, url: `${$base_url}/cn/${type}/${id}.html` },
         })
     })
 
