@@ -1,0 +1,194 @@
+name: PPnix Browser Source Test
+
+on:
+  push:
+    branches:
+      - test/ppnix-browser-source
+    paths:
+      - '.github/workflows/ppnix-browser-source-test.yml'
+  workflow_dispatch:
+
+jobs:
+  source-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fetch PPnix source through headless browser
+        shell: bash
+        run: |
+          cat > /tmp/ppnix-browser-test.mjs <<'NODE'
+          import { spawn } from 'node:child_process';
+          import fs from 'node:fs';
+
+          const targetUrl = 'https://www.ppnix.com/cn/movie/347.html';
+          const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+          const candidates = [
+            '/usr/bin/google-chrome',
+            '/usr/bin/google-chrome-stable',
+            '/usr/bin/chromium',
+            '/usr/bin/chromium-browser',
+          ];
+          const chrome = candidates.find(p => fs.existsSync(p));
+          if (!chrome) throw new Error('chrome_not_found');
+
+          const port = 9333 + Math.floor(Math.random() * 300);
+          const profile = `/tmp/ppnix-profile-${Date.now()}`;
+          const child = spawn(chrome, [
+            '--headless=new',
+            '--no-sandbox',
+            '--disable-gpu',
+            '--disable-dev-shm-usage',
+            '--disable-blink-features=AutomationControlled',
+            '--no-first-run',
+            '--no-default-browser-check',
+            '--window-size=1365,900',
+            '--lang=zh-CN',
+            `--user-agent=${userAgent}`,
+            `--user-data-dir=${profile}`,
+            `--remote-debugging-port=${port}`,
+            targetUrl,
+          ], { stdio: ['ignore', 'pipe', 'pipe'] });
+
+          const sleep = ms => new Promise(r => setTimeout(r, ms));
+          async function json(url) {
+            const r = await fetch(url);
+            if (!r.ok) throw new Error(`http_${r.status}`);
+            return await r.json();
+          }
+          async function waitTargets() {
+            const deadline = Date.now() + 30000;
+            while (Date.now() < deadline) {
+              try {
+                const list = await json(`http://127.0.0.1:${port}/json`);
+                const page = list.find(x => x.type === 'page' && x.webSocketDebuggerUrl);
+                if (page) return page;
+              } catch {}
+              await sleep(500);
+            }
+            throw new Error('cdp_target_timeout');
+          }
+
+          let ws;
+          let seq = 0;
+          const pending = new Map();
+          function send(method, params = {}) {
+            return new Promise((resolve, reject) => {
+              const id = ++seq;
+              pending.set(id, { resolve, reject });
+              ws.send(JSON.stringify({ id, method, params }));
+              setTimeout(() => {
+                if (!pending.has(id)) return;
+                pending.delete(id);
+                reject(new Error(`cdp_timeout:${method}`));
+              }, 15000);
+            });
+          }
+
+          async function evaluate(expression, awaitPromise = false) {
+            const out = await send('Runtime.evaluate', {
+              expression,
+              returnByValue: true,
+              awaitPromise,
+            });
+            if (out?.result?.exceptionDetails) throw new Error('runtime_eval_failed');
+            return out?.result?.result?.value;
+          }
+
+          try {
+            const page = await waitTargets();
+            ws = new WebSocket(page.webSocketDebuggerUrl);
+            ws.onmessage = ev => {
+              const msg = JSON.parse(ev.data);
+              if (!msg.id || !pending.has(msg.id)) return;
+              const p = pending.get(msg.id);
+              pending.delete(msg.id);
+              if (msg.error) p.reject(new Error(msg.error.message || 'cdp_error'));
+              else p.resolve(msg);
+            };
+            await new Promise((resolve, reject) => {
+              ws.onopen = resolve;
+              ws.onerror = reject;
+            });
+            await send('Runtime.enable');
+            await send('Page.enable');
+
+            let html = '';
+            let state = {};
+            const deadline = Date.now() + 65000;
+            while (Date.now() < deadline) {
+              state = await evaluate(`({url:location.href,title:document.title,html:document.documentElement.outerHTML})`);
+              html = String(state?.html || '');
+              const lower = html.toLowerCase();
+              console.log('PAGE', state?.url, 'TITLE', state?.title, 'LEN', html.length);
+              if (/m3u8\s*=\s*\[([\s\S]*?)\]/.test(html)) break;
+              if (lower.includes('cf_chl_opt') || lower.includes('/cdn-cgi/challenge-platform') || String(state?.title || '').toLowerCase().includes('just a moment')) {
+                console.log('WAITING_FOR_CLOUDFLARE_CLEARANCE');
+              }
+              await sleep(1500);
+            }
+
+            const match = html.match(/m3u8\s*=\s*\[([\s\S]*?)\]/);
+            if (!match) throw new Error(`m3u8_array_not_found:title=${state?.title || ''}:url=${state?.url || ''}`);
+            const values = [];
+            const re = /['\"]([^'\"]+)['\"]/g;
+            let m;
+            while ((m = re.exec(match[1]))) {
+              const v = String(m[1] || '').trim();
+              if (v) values.push(v);
+            }
+            if (!values.length) throw new Error('m3u8_values_empty');
+            console.log('M3U8_VALUES', JSON.stringify(values));
+
+            const idMatch = targetUrl.match(/\/(\d+)\.html$/);
+            const id = idMatch?.[1];
+            if (!id) throw new Error('detail_id_missing');
+
+            let success = null;
+            const attempts = [];
+            for (const value of values) {
+              const sourceUrl = `https://www.ppnix.com/info/m3u8/${id}/${encodeURIComponent(value)}.m3u8`;
+              const expr = `(async()=>{try{const r=await fetch(${JSON.stringify(sourceUrl)},{credentials:'include',cache:'no-store'});const t=await r.text();return {url:r.url,status:r.status,ct:r.headers.get('content-type')||'',text:t.slice(0,4000)}}catch(e){return {url:${JSON.stringify(sourceUrl)},status:0,error:String(e&&e.message||e),text:''}}})()`;
+              const r = await evaluate(expr, true);
+              const text = String(r?.text || '');
+              const ok = Number(r?.status) >= 200 && Number(r?.status) < 300 && /^#EXTM3U/m.test(text.trimStart());
+              attempts.push({ value, source_url: sourceUrl, status: r?.status || 0, content_type: r?.ct || '', error: r?.error || '', extm3u: ok });
+              console.log('SOURCE_ATTEMPT', JSON.stringify(attempts[attempts.length - 1]));
+              if (ok) {
+                success = { value, source_url: sourceUrl, final_url: r.url || sourceUrl, status: r.status, content_type: r.ct || '', preview: text.slice(0, 800) };
+                break;
+              }
+            }
+
+            const report = {
+              target_url: targetUrl,
+              title: state?.title || '',
+              values,
+              attempts,
+              success,
+            };
+            fs.writeFileSync('ppnix-source-report.json', JSON.stringify(report, null, 2));
+            if (!success) throw new Error('no_valid_m3u8_source');
+
+            console.log('PPNIX_SOURCE_OK');
+            console.log('SOURCE_URL=' + success.source_url);
+            console.log('FINAL_URL=' + success.final_url);
+            console.log('STATUS=' + success.status);
+            console.log('CONTENT_TYPE=' + success.content_type);
+            console.log('PLAYLIST_PREVIEW=' + success.preview.replace(/\n/g, '\\n'));
+          } finally {
+            try { ws?.close(); } catch {}
+            try { child.kill('SIGKILL'); } catch {}
+          }
+          NODE
+          node /tmp/ppnix-browser-test.mjs
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ppnix-source-report
+          path: ppnix-source-report.json
+          if-no-files-found: ignore
