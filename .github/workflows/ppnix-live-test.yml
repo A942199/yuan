@@ -1,0 +1,31 @@
+name: PPnix Live Playback Test
+
+on:
+  push:
+    branches:
+      - test/ppnix-live
+    paths:
+      - 'scripts/test-ppnix-live.mjs'
+      - '.github/workflows/ppnix-live-test.yml'
+  workflow_dispatch:
+
+jobs:
+  live-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run real PPnix media test
+        run: node scripts/test-ppnix-live.mjs
+      - name: Print report
+        if: always()
+        run: cat ppnix-live-report.json || true
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ppnix-live-report
+          path: ppnix-live-report.json
