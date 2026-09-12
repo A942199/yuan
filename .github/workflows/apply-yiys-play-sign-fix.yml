@@ -1,0 +1,42 @@
+name: Apply YiYS Play Signature Fix
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/apply-yiys-play-sign-fix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Apply exact verified fix
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('js/yiys.js')
+          s = p.read_text(encoding='utf-8')
+          old = '            urlEncode: rawUrl,\n'
+          new = '            urlEncode: encodeURIComponent(rawUrl),\n'
+          count = s.count(old)
+          if count != 1:
+              raise SystemExit(f'expected exactly one play urlEncode occurrence, got {count}')
+          p.write_text(s.replace(old, new, 1), encoding='utf-8')
+          PY
+          node --check js/yiys.js
+      - name: Commit fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add js/yiys.js
+          git commit -m 'fix: use encoded url for yiys play signature'
+          git push
