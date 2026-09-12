@@ -1,0 +1,98 @@
+name: PPnix Browser Source Test V3
+
+on:
+  push:
+    branches:
+      - test/ppnix-browser-source
+    paths:
+      - '.github/workflows/ppnix-browser-source-test-v3.yml'
+  workflow_dispatch:
+
+jobs:
+  source-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v7
+      - name: Chrome dump and m3u8 probe
+        shell: bash
+        run: |
+          set -u
+          URL='https://www.ppnix.com/cn/movie/347.html'
+          CHROME=''
+          for c in /usr/bin/google-chrome /usr/bin/google-chrome-stable /usr/bin/chromium /usr/bin/chromium-browser; do
+            if [ -x "$c" ]; then CHROME="$c"; break; fi
+          done
+          test -n "$CHROME" || { echo chrome_not_found; exit 2; }
+          PROFILE="/tmp/ppnix-$RANDOM"
+          mkdir -p "$PROFILE"
+          echo "CHROME=$CHROME"
+          set +e
+          timeout 75s "$CHROME" \
+            --headless=new \
+            --no-sandbox \
+            --disable-gpu \
+            --disable-dev-shm-usage \
+            --disable-blink-features=AutomationControlled \
+            --window-size=1365,900 \
+            --lang=zh-CN \
+            --user-data-dir="$PROFILE" \
+            --virtual-time-budget=45000 \
+            --dump-dom "$URL" > ppnix-page.html 2> chrome-stderr.txt
+          RC=$?
+          set -e
+          echo "CHROME_RC=$RC"
+          echo "HTML_BYTES=$(wc -c < ppnix-page.html)"
+          head -c 500 ppnix-page.html | tr '\n' ' '; echo
+          echo '--- chrome stderr tail ---'
+          tail -n 30 chrome-stderr.txt || true
+
+          python - <<'PY'
+          import json,re,sys
+          from pathlib import Path
+          html=Path('ppnix-page.html').read_text(errors='ignore')
+          title=re.search(r'<title[^>]*>(.*?)</title>',html,re.I|re.S)
+          print('TITLE=',re.sub(r'\s+',' ',title.group(1)).strip() if title else '')
+          m=re.search(r'm3u8\s*=\s*\[([\s\S]*?)\]',html)
+          if not m:
+              low=html.lower()
+              print('CF_CHALLENGE=', 'just a moment' in low or '/cdn-cgi/challenge-platform' in low or 'cf_chl_opt' in low)
+              print('RESULT=m3u8_array_not_found')
+              sys.exit(3)
+          vals=re.findall(r"['\"]([^'\"]+)['\"]",m.group(1))
+          vals=[v.strip() for v in vals if v.strip()]
+          print('M3U8_VALUES=',json.dumps(vals,ensure_ascii=False))
+          if not vals: sys.exit(4)
+          source='https://www.ppnix.com/info/m3u8/347/'+__import__('urllib.parse').parse.quote(vals[0],safe='')+'.m3u8'
+          Path('source-url.txt').write_text(source)
+          print('SOURCE_URL='+source)
+          PY
+
+          SOURCE_URL="$(cat source-url.txt)"
+          echo '--- probing source URL ---'
+          set +e
+          curl -L --http1.1 --max-time 25 --connect-timeout 10 \
+            -A 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36' \
+            -e 'https://www.ppnix.com/cn/movie/347.html' \
+            -D source-headers.txt -o source-body.txt -w 'HTTP=%{http_code} CT=%{content_type} FINAL=%{url_effective}\n' \
+            "$SOURCE_URL"
+          CURL_RC=$?
+          set -e
+          echo "CURL_RC=$CURL_RC"
+          echo "SOURCE_BYTES=$(wc -c < source-body.txt 2>/dev/null || echo 0)"
+          head -n 20 source-headers.txt || true
+          head -n 20 source-body.txt || true
+          grep -q '^#EXTM3U' source-body.txt || { echo RESULT=source_not_extm3u; exit 5; }
+          echo RESULT=PPNIX_SOURCE_OK
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ppnix-source-evidence-v3
+          path: |
+            ppnix-page.html
+            chrome-stderr.txt
+            source-url.txt
+            source-headers.txt
+            source-body.txt
+          if-no-files-found: ignore
