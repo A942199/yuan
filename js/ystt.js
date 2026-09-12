@@ -1,24 +1,15 @@
-//来自‘夢’
 const cheerio = createCheerio();
-
 const UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_2_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.2.1 Mobile/15E148 Safari/604.1';
 
 let appConfig = {
-    ver: 20260725,
+    ver: 20260912,
     title: '影视天堂',
     site: 'https://ysttv.com',
     tabs: [
         { name: '电影', ext: { id: 1 } },
-        { name: '电视', ext: { id: 2 } },
-        { name: '陆剧', ext: { id: 2, area: '大陆' } },
-        { name: '台剧', ext: { id: 2, area: '台湾' } },
-        { name: '香剧', ext: { id: 2, area: '香港' } },
-        { name: '美剧', ext: { id: 2, area: '美国' } },
-        { name: '韩剧', ext: { id: 2, area: '韩国' } },
-        { name: '日剧', ext: { id: 2, area: '日本' } },
+        { name: '电视剧', ext: { id: 2 } },
         { name: '综艺', ext: { id: 3 } },
-        { name: '动漫', ext: { id: 4 } },
-        { name: '短剧', ext: { id: 5 } }
+        { name: '动漫', ext: { id: 4 } }
     ]
 };
 
@@ -28,57 +19,57 @@ async function getConfig() {
 
 async function getCards(ext) {
     ext = JSON.parse(ext);
-    let cards = [];
-    let { id, area, page = 1 } = ext;
-
-    let url = `${appConfig.site}/library/index/`;
-    url += area 
-        ? `c/${id}/t/all/y/all/a/${area}/s/1/page/${page}` 
-        : `c/${id}/t/all/y/all/s/1/page/${page}`;
+    const page = ext.page || 1;
+    const url = `${appConfig.site}/vod/${ext.id}/${page}`;
 
     const { data } = await $fetch.get(url, {
         headers: { 'User-Agent': UA }
     });
 
     const $ = cheerio.load(data);
+    let list = [];
 
-    $('main ul.mb-5 > li').each((_, element) => {
-        if ($(element).find('.subtitle').text().includes('伦理')) return;
-        const href = $(element).find('a').attr('href');
-        const pic = $(element).find('img').attr('data-src') || $(element).find('img').attr('src');
-        const name = $(element).find('a').attr('title');
-        const remark = parseFloat($(element).find('.tag.bg-dx-blue').text()).toFixed(1) || $(element).find('.text-white').text();
-        cards.push({
-            vod_id: href,
-            vod_name: name,
-            vod_pic: pic,
-            vod_remarks: remark,
-            ext: { url: `${appConfig.site}${href}` }
+    $('.video-card').each((_, element) => {
+        const a = $(element).find('a').first();
+        const href = a.attr('href');
+        const title = a.attr('title') || $(element).find('h3').text().trim();
+        const img = $(element).find('img').attr('data-src') || $(element).find('img').attr('src');
+        const remark = $(element).find('.subtitle').text().trim();
+
+        if (!href) return;
+
+        list.push({
+            vod_id: new URL(href, appConfig.site).toString(),
+            vod_name: title,
+            vod_pic: img,
+            vod_remarks: remark
         });
     });
 
-    return JSON.stringify({ list: cards });
+    return JSON.stringify({ list });
 }
 
 async function getTracks(ext) {
     ext = JSON.parse(ext);
     let list = [];
-    let url = ext.url;
+    const url = ext.url;
 
     const { data } = await $fetch.get(url, {
         headers: { 'User-Agent': UA }
     });
 
     const $ = cheerio.load(data);
-    let tracks = [];
+    const tracks = [];
     const seen = new Set();
 
-    // 站点新版详情页已移除旧的 .overflow-auto 列表，播放入口统一为 /player/。
-    $('a[href^="/player/"]').each((index, element) => {
+    // 新版播放页使用 /play/，同时兼容旧版 /player/
+    $('a[href^="/play/"], a[href^="/player/"]').each((index, element) => {
         const href = $(element).attr('href');
         if (!href || seen.has(href)) return;
         seen.add(href);
+
         const name = $(element).text().replace(/\s+/g, ' ').trim() || `播放${index + 1}`;
+
         tracks.push({
             name,
             pan: '',
@@ -93,55 +84,113 @@ async function getTracks(ext) {
         });
     }
 
-    return JSON.stringify({ list: list });
+    return JSON.stringify({ list });
+}
+
+function normalizeMediaUrl(u) {
+    if (!u) return '';
+    u = String(u)
+        .trim()
+        .replace(/\\\//g, '/')
+        .replace(/&amp;/g, '&');
+
+    if (u.startsWith('//')) u = 'https:' + u;
+    return u;
+}
+
+function isLikelyAdUrl(u) {
+    const low = u.toLowerCase();
+    return low.includes('/ad/') ||
+        low.includes('/ads/') ||
+        low.includes('advert') ||
+        low.includes('advertise') ||
+        low.includes('preroll') ||
+        low.includes('pre-roll');
 }
 
 async function getPlayinfo(ext) {
     ext = JSON.parse(ext);
-    const url = ext.url;
+    const pageUrl = ext.url;
 
-    const { data } = await $fetch.get(url, {
-        headers: { 'User-Agent': UA }
+    const { data } = await $fetch.get(pageUrl, {
+        headers: {
+            'User-Agent': UA,
+            Referer: `${appConfig.site}/`
+        }
     });
 
     const $ = cheerio.load(data);
-    const playUrl = ($('#mse').attr('data-url') || '').trim();
-    if (!/^https?:\/\//i.test(playUrl)) {
+    const candidates = [];
+
+    // 不再只读取 #mse，遍历所有 data-url
+    $('[data-url]').each((_, el) => {
+        const u = normalizeMediaUrl($(el).attr('data-url'));
+        if (/^https?:\/\//i.test(u)) candidates.push(u);
+    });
+
+    // 某些页面把真实地址写进脚本里
+    $('script').each((_, el) => {
+        const js = $(el).html() || '';
+        const matches = js.match(/https?:\\?\/\\?\/[^"'\\\s]+?(?:\.m3u8|\.mp4)(?:\?[^"'\\\s]*)?/gi);
+        if (!matches) return;
+
+        for (const item of matches) {
+            const u = normalizeMediaUrl(item);
+            if (/^https?:\/\//i.test(u)) candidates.push(u);
+        }
+    });
+
+    const unique = [...new Set(candidates)];
+
+    // 优先返回看起来像正片的 m3u8 / mp4，并过滤常见广告地址
+    const videos = unique.filter(u => {
+        const low = u.toLowerCase();
+        if (isLikelyAdUrl(u)) return false;
+        return low.includes('.m3u8') || low.includes('.mp4');
+    });
+
+    if (!videos.length) {
         return JSON.stringify({ urls: [] });
     }
 
+    const playUrl = videos[0];
+
     return JSON.stringify({
         urls: [playUrl],
-        headers: [{ 'User-Agent': UA, Referer: `${appConfig.site}/` }]
+        headers: [{
+            'User-Agent': UA,
+            Referer: pageUrl
+        }]
     });
 }
 
 async function search(ext) {
     ext = JSON.parse(ext);
-    let cards = [];
+    const keyword = ext.text || ext.keyword || '';
+    if (!keyword) return JSON.stringify({ list: [] });
 
-    let text = encodeURIComponent(ext.text);
-    let page = ext.page || 1;
-    let url = `${appConfig.site}/search/index/type/1/keyword/${text}/page/${page}`;
-
+    const url = `${appConfig.site}/search/video/${encodeURIComponent(keyword)}/1`;
     const { data } = await $fetch.get(url, {
         headers: { 'User-Agent': UA }
     });
 
     const $ = cheerio.load(data);
+    let list = [];
 
-    $('main ul.grid > li').each((_, element) => {
-        const href = $(element).find('a').attr('href');
-        const pic = $(element).find('img').attr('data-src') || $(element).find('img').attr('src');
-        const name = $(element).find('a').attr('title');
-        cards.push({
-            vod_id: href,
-            vod_name: name,
-            vod_pic: pic,
-            vod_remarks: '',
-            ext: { url: `${appConfig.site}${href}` }
+    $('a.not-link').each((_, element) => {
+        const href = $(element).attr('href');
+        if (!href) return;
+
+        const title = $(element).attr('title') || $(element).find('h2').text().trim();
+        const img = $(element).find('img').attr('data-src') || $(element).find('img').attr('src');
+
+        list.push({
+            vod_id: new URL(href, appConfig.site).toString(),
+            vod_name: title,
+            vod_pic: img,
+            vod_remarks: ''
         });
     });
 
-    return JSON.stringify({ list: cards });
+    return JSON.stringify({ list });
 }
