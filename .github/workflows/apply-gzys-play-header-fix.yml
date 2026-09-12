@@ -1,0 +1,46 @@
+name: Apply GZYS Play Header Fix
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/apply-gzys-play-header-fix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Patch GZYS playback headers
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          p = Path('js/gzys.js')
+          s = p.read_text(encoding='utf-8')
+          pattern = re.compile(r"(\{'urls':\[[^\]]+\])\}")
+          matches = list(pattern.finditer(s))
+          if len(matches) != 1:
+              raise SystemExit(f'expected exactly one getPlayinfo urls object, got {len(matches)}')
+          m = matches[0]
+          replacement = m.group(1) + ",'headers':[{'User-Agent':'Lavf/57.83.100','Referer':'http://WJiZxLXA2.com/'}]}"
+          s = s[:m.start()] + replacement + s[m.end():]
+          p.write_text(s, encoding='utf-8')
+          PY
+          node --check js/gzys.js
+      - name: Commit fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add js/gzys.js
+          git rm .github/workflows/apply-gzys-play-header-fix.yml
+          git commit -m 'fix: add required playback headers for gzys'
+          git push
