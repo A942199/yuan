@@ -424,33 +424,6 @@ async function getTracks(ext) {
     return jsonify({ list })
 }
 
-function isLikelyHlsUrl(url) {
-    const value = textOf(url).toLowerCase()
-    return value.includes('.m3u8') || value.includes('/getm3u8') || value.includes('/m3u8/')
-}
-
-async function probeMediaUrl(url) {
-    if (!/^https?:\/\//i.test(url)) return { ok: false, reason: 'not_http' }
-    if (!isLikelyHlsUrl(url)) return { ok: true, reason: 'non_hls' }
-    try {
-        const resp = await $fetch.get(url, { headers: { 'User-Agent': UA } })
-        const status = Number(resp && resp.status || 200)
-        const body = textOf(resp && resp.data).trim()
-        if (status >= 400) return { ok: false, reason: 'http_' + status }
-        if (/^#EXTM3U(?:\r?\n|$)/i.test(body)) return { ok: true, reason: 'hls' }
-        if (/error\s*code\s*:\s*\d+/i.test(body)) {
-            const match = body.match(/error\s*code\s*:\s*(\d+)/i)
-            return { ok: false, reason: 'gateway_' + (match ? match[1] : 'error') }
-        }
-        const headers = resp && (resp.headers || resp.respHeaders) || {}
-        const ct = textOf(headers['content-type'] || headers['Content-Type']).toLowerCase()
-        if (ct.includes('mpegurl') && body.includes('#EXT')) return { ok: true, reason: 'hls_content_type' }
-        return { ok: false, reason: body ? 'invalid_hls' : 'empty_hls' }
-    } catch (e) {
-        return { ok: false, reason: errorText(e) || 'probe_failed' }
-    }
-}
-
 async function resolvePlayCandidate(candidate) {
     const sourceCode = candidate && candidate.sourceCode
     const rawUrl = textOf(candidate && candidate.url).trim()
@@ -464,18 +437,16 @@ async function resolvePlayCandidate(candidate) {
         }, 'play')
         const playUrl = textOf(json && json.data && json.data.url).trim()
         if (/^https?:\/\//i.test(playUrl)) {
-            const probe = await probeMediaUrl(playUrl)
-            if (probe.ok) return { ok: true, url: playUrl, reason: probe.reason }
-            return { ok: false, reason: probe.reason, url: playUrl }
+            return { ok: true, url: playUrl, reason: 'resolved' }
         }
     } catch (e) {
-        return { ok: false, reason: errorText(e) || 'play_api_failed' }
+        if (!/^https?:\/\//i.test(rawUrl)) {
+            return { ok: false, reason: errorText(e) || 'play_api_failed' }
+        }
     }
 
     if (/^https?:\/\//i.test(rawUrl)) {
-        const probe = await probeMediaUrl(rawUrl)
-        if (probe.ok) return { ok: true, url: rawUrl, reason: 'raw_' + probe.reason }
-        return { ok: false, reason: 'raw_' + probe.reason, url: rawUrl }
+        return { ok: true, url: rawUrl, reason: 'raw_direct' }
     }
 
     return { ok: false, reason: 'no_play_url' }
@@ -514,6 +485,7 @@ async function getPlayinfo(ext) {
             return jsonify({
                 urls: [result.url],
                 headers: { 'User-Agent': UA },
+                selected_source: textOf(candidate.sourceName || candidate.sourceCode),
             })
         }
         failures.push(
