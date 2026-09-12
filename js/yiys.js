@@ -15,7 +15,6 @@ const HOST_CACHE_KEY = 'yiys_working_host'
 let host = SITE
 let token = ''
 let appId = ''
-
 const filterList = {}
 
 function sleep(ms) {
@@ -32,15 +31,12 @@ function errorText(error) {
 
 function parseApiJson(resp, label) {
     if (!resp) throw new Error(`${label}_empty_response`)
-
     const status = Number(resp.status || 200)
     const raw = resp.data
     const text = typeof raw === 'string' ? raw.trim() : ''
-
     if (status >= 400) throw new Error(`${label}_http_${status}`)
     if (!text && (raw == null || raw === '')) throw new Error(`${label}_empty_body`)
     if (text && /^<!doctype|^<html/i.test(text)) throw new Error(`${label}_returned_html`)
-
     try {
         return typeof raw === 'string' ? JSON.parse(raw) : (raw || {})
     } catch (_) {
@@ -54,39 +50,32 @@ function sha256(str) {
 
 function genId() {
     const chars = '0123456789abcdef'
-    let r = ''
-    for (let i = 0; i < 16; i++) r += chars[Math.floor(Math.random() * 16)]
-    return r
+    let result = ''
+    for (let i = 0; i < 16; i++) result += chars[Math.floor(Math.random() * 16)]
+    return result
 }
 
 function cacheGet(key) {
     try {
-        if (typeof $cache !== 'undefined' && $cache && typeof $cache.get === 'function') {
-            return $cache.get(key)
-        }
+        if (typeof $cache !== 'undefined' && $cache && typeof $cache.get === 'function') return $cache.get(key)
     } catch (_) {}
     return null
 }
 
 function cacheSet(key, value) {
     try {
-        if (typeof $cache !== 'undefined' && $cache && typeof $cache.set === 'function') {
-            $cache.set(key, value)
-        }
+        if (typeof $cache !== 'undefined' && $cache && typeof $cache.set === 'function') $cache.set(key, value)
     } catch (_) {}
 }
 
 function initAppId() {
     if (appId) return appId
-
     const saved = textOf(cacheGet(APP_ID_CACHE_KEY)).trim()
     if (/^[0-9a-f]{16}$/i.test(saved)) appId = saved
-
     if (!appId) {
         appId = genId()
         cacheSet(APP_ID_CACHE_KEY, appId)
     }
-
     return appId
 }
 
@@ -100,12 +89,9 @@ function hostCandidates() {
         const normalized = normalizeHost(value)
         if (normalized && !out.includes(normalized)) out.push(normalized)
     }
-
     push(host)
-
     const cached = textOf(cacheGet(HOST_CACHE_KEY)).trim()
     if (/^https?:\/\//i.test(cached)) push(cached)
-
     for (const item of FALLBACK_SITES) push(item)
     return out
 }
@@ -121,8 +107,8 @@ function ts() {
 
 function qs(obj) {
     return Object.keys(obj)
-        .filter((k) => obj[k] != null)
-        .map((k) => encodeURIComponent(k) + '=' + encodeURIComponent(String(obj[k])))
+        .filter((key) => obj[key] != null)
+        .map((key) => encodeURIComponent(key) + '=' + encodeURIComponent(String(obj[key])))
         .join('&')
 }
 
@@ -132,7 +118,6 @@ function clonePayload(payload) {
     return next
 }
 
-// RSA public-key operation used by the app protocol.
 function rsaPubDecrypt(b64Data) {
     try {
         const JSEncrypt = loadJSEncrypt()
@@ -140,52 +125,36 @@ function rsaPubDecrypt(b64Data) {
         crypt.setPublicKey(PUB_KEY)
         const rsaKey = crypt.getKey()
         const BI = rsaKey.n.constructor
-
         const wa = CryptoJS.enc.Base64.parse(b64Data)
         let cipherHex = ''
         for (let i = 0; i < wa.sigBytes; i++) {
             const b = (wa.words[i >>> 2] >>> (24 - (i % 4) * 8)) & 0xff
             cipherHex += ('0' + b.toString(16)).slice(-2)
         }
-
         const biCipher = new BI(cipherHex, 16)
         const biResult = rsaKey.doPublic(biCipher)
-
         const modHexLen = rsaKey.n.toString(16).length
         const modByteLen = Math.ceil(modHexLen / 2)
         let resultHex = biResult.toString(16)
         while (resultHex.length < modByteLen * 2) resultHex = '0' + resultHex
-
         const bytes = []
-        for (let i = 0; i < resultHex.length; i += 2) {
-            bytes.push(parseInt(resultHex.substring(i, i + 2), 16))
-        }
-
+        for (let i = 0; i < resultHex.length; i += 2) bytes.push(parseInt(resultHex.substring(i, i + 2), 16))
         if (bytes.length >= 2 && bytes[0] === 0x00 && bytes[1] === 0x01) {
             for (let j = 2; j < bytes.length; j++) {
                 if (bytes[j] === 0x00) {
                     const msg = bytes.slice(j + 1)
                     let s = ''
                     for (let k = 0; k < msg.length; k++) s += String.fromCharCode(msg[k])
-                    try {
-                        return decodeURIComponent(escape(s))
-                    } catch (_) {
-                        return s
-                    }
+                    try { return decodeURIComponent(escape(s)) } catch (_) { return s }
                 }
             }
         }
-
         let start = 0
         while (start < bytes.length && bytes[start] === 0x00) start++
         const msg = bytes.slice(start)
         let s = ''
         for (let k = 0; k < msg.length; k++) s += String.fromCharCode(msg[k])
-        try {
-            return decodeURIComponent(escape(s))
-        } catch (_) {
-            return s
-        }
+        try { return decodeURIComponent(escape(s)) } catch (_) { return s }
     } catch (e) {
         console.log('RSA decrypt error:', errorText(e))
         return ''
@@ -194,21 +163,20 @@ function rsaPubDecrypt(b64Data) {
 
 function computeHash(params) {
     const keys = Object.keys(params || {}).sort()
-    const pairs = keys.map((k) => k + '=' + params[k])
-    const full = pairs.join('&') + '&token=' + token
-    return sha256(full)
+    const pairs = keys.map((key) => key + '=' + params[key])
+    return sha256(pairs.join('&') + '&token=' + token)
 }
 
 function getHeaders(params) {
     initAppId()
-    const h = {
+    const headers = {
         'User-Agent': UA,
         Connection: 'Keep-Alive',
         'APP-ID': appId,
         Authorization: '',
     }
-    if (params) h['X-HASH-Data'] = computeHash(params)
-    return h
+    if (params) headers['X-HASH-Data'] = computeHash(params)
+    return headers
 }
 
 async function fetchTokenFrom(base) {
@@ -223,10 +191,8 @@ async function fetchTokenFrom(base) {
     })
     const json = parseApiJson(resp, 'token')
     if (!json || !json.data) throw new Error('token_missing_data')
-
     const nextToken = rsaPubDecrypt(json.data)
     if (!nextToken) throw new Error('token_decrypt_failed')
-
     token = nextToken
     setWorkingHost(base)
     return true
@@ -235,7 +201,6 @@ async function fetchTokenFrom(base) {
 async function refreshToken() {
     token = ''
     const failures = []
-
     for (const base of hostCandidates()) {
         try {
             await fetchTokenFrom(base)
@@ -244,18 +209,15 @@ async function refreshToken() {
             failures.push(base + '=' + errorText(e))
         }
     }
-
     throw new Error('token_all_hosts_failed:' + failures.join('|'))
 }
 
 async function apiRequest(method, path, payload, label) {
     initAppId()
     const failures = []
-
     for (const base of hostCandidates()) {
         try {
             if (!token || base !== host) await fetchTokenFrom(base)
-
             for (let attempt = 0; attempt < 2; attempt++) {
                 const requestPayload = clonePayload(payload)
                 try {
@@ -272,7 +234,6 @@ async function apiRequest(method, path, payload, label) {
                             },
                         })
                     }
-
                     const json = parseApiJson(resp, label)
                     setWorkingHost(base)
                     return json
@@ -291,7 +252,6 @@ async function apiRequest(method, path, payload, label) {
             if (base === host) token = ''
         }
     }
-
     throw new Error(label + '_all_hosts_failed:' + failures.join('|'))
 }
 
@@ -314,52 +274,42 @@ function toCard(v) {
 
 async function getConfig() {
     await ensureSession()
-
     const json = await apiRequest('GET', '/vod-app/type/list', { timestamp: ts() }, 'config')
     if (!Array.isArray(json.data)) throw new Error('config_missing_data')
-
     const tabs = []
     for (const item of json.data) {
         if (!item || item.typeId == null) continue
         const tid = String(item.typeId)
         tabs.push({ name: textOf(item.typeName), ext: { id: tid } })
-
         const ext = item.type_extend_obj
-        if (ext) {
-            const filters = []
-            const mkFilter = (key, name, str) => {
-                const vals = [{ n: '全部', v: '' }]
-                if (str) {
-                    String(str).split(',').forEach((s) => {
-                        s = s.trim()
-                        if (s) vals.push({ n: s, v: s })
-                    })
-                }
-                filters.push({ key, name, value: vals })
+        if (!ext) continue
+        const filters = []
+        const mkFilter = (key, name, str) => {
+            const vals = [{ n: '全部', v: '' }]
+            if (str) {
+                String(str).split(',').forEach((part) => {
+                    const value = part.trim()
+                    if (value) vals.push({ n: value, v: value })
+                })
             }
-            if (ext.class) mkFilter('classType', '类型', ext.class)
-            if (ext.area) mkFilter('area', '地区', ext.area)
-            if (ext.lang) mkFilter('lang', '语言', ext.lang)
-            if (ext.year) mkFilter('year', '年份', ext.year)
-            filters.push({
-                key: 'sort',
-                name: '排序',
-                value: [
-                    { n: '新上线', v: 'time' },
-                    { n: '热播榜', v: 'hits_day' },
-                    { n: '好评榜', v: 'score' },
-                ],
-            })
-            if (filters.length) filterList[tid] = filters
+            filters.push({ key, name, value: vals })
         }
+        if (ext.class) mkFilter('classType', '类型', ext.class)
+        if (ext.area) mkFilter('area', '地区', ext.area)
+        if (ext.lang) mkFilter('lang', '语言', ext.lang)
+        if (ext.year) mkFilter('year', '年份', ext.year)
+        filters.push({
+            key: 'sort',
+            name: '排序',
+            value: [
+                { n: '新上线', v: 'time' },
+                { n: '热播榜', v: 'hits_day' },
+                { n: '好评榜', v: 'score' },
+            ],
+        })
+        if (filters.length) filterList[tid] = filters
     }
-
-    return jsonify({
-        ver: 1,
-        title: '意影视',
-        site: host,
-        tabs,
-    })
+    return jsonify({ ver: 1, title: '意影视', site: host, tabs })
 }
 
 async function getCards(ext) {
@@ -367,7 +317,6 @@ async function getCards(ext) {
     ext = argsify(ext) || {}
     const { id: tid, page = 1, filters = {} } = ext
     if (tid == null || tid === '') throw new Error('cards_missing_tid')
-
     const raw = {
         tid: String(tid),
         page: String(page),
@@ -380,21 +329,54 @@ async function getCards(ext) {
         by: filters.sort || 'time',
     }
     const payload = {}
-    for (const k of Object.keys(raw)) {
-        if (raw[k] !== '' && raw[k] != null) payload[k] = raw[k]
-    }
-
+    for (const key of Object.keys(raw)) if (raw[key] !== '' && raw[key] != null) payload[key] = raw[key]
     const json = await apiRequest('POST', '/vod-app/vod/list', payload, 'cards')
     const data = json.data || {}
     const items = Array.isArray(data.data) ? data.data : []
-    const list = items.map(toCard).filter(Boolean)
-
     return jsonify({
-        list,
+        list: items.map(toCard).filter(Boolean),
         page: Number(page) || 1,
         pagecount: Number(data.totalPageCount || 1),
         filter: filterList[String(tid)] || [],
     })
+}
+
+function normalizeEpisodeName(value) {
+    return textOf(value).toLowerCase().replace(/[\s\-_【】\[\]()（）]+/g, '')
+}
+
+function sourcePenalty(source) {
+    const code = textOf(source && source.sourceCode).toUpperCase()
+    const name = textOf(source && source.sourceName).toUpperCase()
+    const base = Number(source && source.sort || 0)
+    if (code === 'NBY' || name.includes('NBY')) return 100000 + base
+    return base
+}
+
+function buildSourceEntries(rawSources) {
+    return rawSources
+        .filter(Boolean)
+        .map((source) => ({
+            sourceCode: source.sourceCode,
+            sourceName: textOf(source.sourceName) || textOf(source.sourceCode) || '默认线路',
+            sort: source.sort,
+            urls: Array.isArray(source.vodPlayList && source.vodPlayList.urls)
+                ? source.vodPlayList.urls.filter((item) => item && item.url)
+                : [],
+        }))
+        .filter((source) => source.urls.length > 0)
+        .sort((a, b) => sourcePenalty(a) - sourcePenalty(b))
+}
+
+function findMatchingEpisode(source, targetName, targetIndex) {
+    if (!source || !Array.isArray(source.urls)) return null
+    const normalized = normalizeEpisodeName(targetName)
+    if (normalized) {
+        const exact = source.urls.find((item) => normalizeEpisodeName(item && item.name) === normalized)
+        if (exact && exact.url) return exact
+    }
+    const byIndex = source.urls[targetIndex]
+    return byIndex && byIndex.url ? byIndex : null
 }
 
 async function getTracks(ext) {
@@ -402,75 +384,144 @@ async function getTracks(ext) {
     ext = argsify(ext) || {}
     const vodId = ext.vod_id || ext.id
     if (vodId == null || vodId === '') throw new Error('tracks_missing_vod_id')
-
-    const payload = {
+    const json = await apiRequest('POST', '/vod-app/vod/info', {
         tid: '',
         timestamp: ts(),
         vodId: String(vodId),
-    }
-
-    const json = await apiRequest('POST', '/vod-app/vod/info', payload, 'tracks')
+    }, 'tracks')
     const data = json.data || {}
-    const sources = Array.isArray(data.vodSources)
-        ? data.vodSources.slice().sort((a, b) => Number(a?.sort || 0) - Number(b?.sort || 0))
-        : []
-
+    const entries = buildSourceEntries(Array.isArray(data.vodSources) ? data.vodSources : [])
     const list = []
-    for (const src of sources) {
-        if (!src) continue
-        const urls = Array.isArray(src.vodPlayList?.urls) ? src.vodPlayList.urls : []
-        const tracks = urls
-            .filter((u) => u && u.url)
-            .map((u, index) => ({
-                name: textOf(u.name) || ('第' + (index + 1) + '集'),
-                ext: { sourceCode: src.sourceCode, url: u.url },
-            }))
 
-        if (tracks.length) {
-            list.push({ title: textOf(src.sourceName) || '默认线路', tracks })
-        }
+    for (const source of entries) {
+        const tracks = source.urls.map((item, index) => {
+            const name = textOf(item.name) || ('第' + (index + 1) + '集')
+            const fallbacks = []
+            for (const alt of entries) {
+                if (alt === source) continue
+                const matched = findMatchingEpisode(alt, name, index)
+                if (!matched) continue
+                fallbacks.push({
+                    sourceCode: alt.sourceCode,
+                    sourceName: alt.sourceName,
+                    url: matched.url,
+                })
+                if (fallbacks.length >= 6) break
+            }
+            return {
+                name,
+                ext: {
+                    sourceCode: source.sourceCode,
+                    sourceName: source.sourceName,
+                    url: item.url,
+                    fallbacks,
+                },
+            }
+        })
+        if (tracks.length) list.push({ title: source.sourceName, tracks })
     }
 
     return jsonify({ list })
 }
 
-async function getPlayinfo(ext) {
-    await ensureSession()
-    ext = argsify(ext) || {}
-    const sourceCode = ext.sourceCode
-    const rawUrl = textOf(ext.url).trim()
-    if (!rawUrl) throw new Error('play_missing_url')
+function isLikelyHlsUrl(url) {
+    const value = textOf(url).toLowerCase()
+    return value.includes('.m3u8') || value.includes('/getm3u8') || value.includes('/m3u8/')
+}
 
-    const payload = {
-        sourceCode: sourceCode == null ? '' : sourceCode,
-        timestamp: ts(),
-        // Form encoding in qs() already performs URL encoding once.
-        urlEncode: rawUrl,
+async function probeMediaUrl(url) {
+    if (!/^https?:\/\//i.test(url)) return { ok: false, reason: 'not_http' }
+    if (!isLikelyHlsUrl(url)) return { ok: true, reason: 'non_hls' }
+    try {
+        const resp = await $fetch.get(url, { headers: { 'User-Agent': UA } })
+        const status = Number(resp && resp.status || 200)
+        const body = textOf(resp && resp.data).trim()
+        if (status >= 400) return { ok: false, reason: 'http_' + status }
+        if (/^#EXTM3U(?:\r?\n|$)/i.test(body)) return { ok: true, reason: 'hls' }
+        if (/error\s*code\s*:\s*\d+/i.test(body)) {
+            const match = body.match(/error\s*code\s*:\s*(\d+)/i)
+            return { ok: false, reason: 'gateway_' + (match ? match[1] : 'error') }
+        }
+        const headers = resp && (resp.headers || resp.respHeaders) || {}
+        const ct = textOf(headers['content-type'] || headers['Content-Type']).toLowerCase()
+        if (ct.includes('mpegurl') && body.includes('#EXT')) return { ok: true, reason: 'hls_content_type' }
+        return { ok: false, reason: body ? 'invalid_hls' : 'empty_hls' }
+    } catch (e) {
+        return { ok: false, reason: errorText(e) || 'probe_failed' }
     }
+}
+
+async function resolvePlayCandidate(candidate) {
+    const sourceCode = candidate && candidate.sourceCode
+    const rawUrl = textOf(candidate && candidate.url).trim()
+    if (!rawUrl) return { ok: false, reason: 'missing_url' }
 
     try {
-        const json = await apiRequest('POST', '/vod-app/vod/playUrl', payload, 'play')
-        const playUrl = textOf(json?.data?.url).trim()
-
+        const json = await apiRequest('POST', '/vod-app/vod/playUrl', {
+            sourceCode: sourceCode == null ? '' : sourceCode,
+            timestamp: ts(),
+            urlEncode: rawUrl,
+        }, 'play')
+        const playUrl = textOf(json && json.data && json.data.url).trim()
         if (/^https?:\/\//i.test(playUrl)) {
-            return jsonify({
-                urls: [playUrl],
-                headers: { 'User-Agent': UA },
-            })
+            const probe = await probeMediaUrl(playUrl)
+            if (probe.ok) return { ok: true, url: playUrl, reason: probe.reason }
+            return { ok: false, reason: probe.reason, url: playUrl }
         }
     } catch (e) {
-        console.log('getPlayinfo api error:', errorText(e))
-        if (!/^https?:\/\//i.test(rawUrl)) throw e
+        return { ok: false, reason: errorText(e) || 'play_api_failed' }
     }
 
     if (/^https?:\/\//i.test(rawUrl)) {
-        return jsonify({
-            urls: [rawUrl],
-            headers: { 'User-Agent': UA },
-        })
+        const probe = await probeMediaUrl(rawUrl)
+        if (probe.ok) return { ok: true, url: rawUrl, reason: 'raw_' + probe.reason }
+        return { ok: false, reason: 'raw_' + probe.reason, url: rawUrl }
     }
 
-    return jsonify({ urls: [] })
+    return { ok: false, reason: 'no_play_url' }
+}
+
+async function getPlayinfo(ext) {
+    await ensureSession()
+    ext = argsify(ext) || {}
+    const primary = {
+        sourceCode: ext.sourceCode,
+        sourceName: ext.sourceName,
+        url: ext.url,
+    }
+    const candidates = [primary]
+    if (Array.isArray(ext.fallbacks)) candidates.push(...ext.fallbacks)
+
+    const unique = []
+    const seen = new Set()
+    for (const candidate of candidates) {
+        const key = textOf(candidate && candidate.sourceCode) + '|' + textOf(candidate && candidate.url)
+        if (!candidate || !candidate.url || seen.has(key)) continue
+        seen.add(key)
+        unique.push(candidate)
+    }
+
+    unique.sort((a, b) => {
+        const ap = textOf(a.sourceCode).toUpperCase() === 'NBY' ? 1 : 0
+        const bp = textOf(b.sourceCode).toUpperCase() === 'NBY' ? 1 : 0
+        return ap - bp
+    })
+
+    const failures = []
+    for (const candidate of unique) {
+        const result = await resolvePlayCandidate(candidate)
+        if (result.ok && result.url) {
+            return jsonify({
+                urls: [result.url],
+                headers: { 'User-Agent': UA },
+            })
+        }
+        failures.push(
+            (textOf(candidate.sourceName) || textOf(candidate.sourceCode) || 'unknown') + ':' + result.reason,
+        )
+    }
+
+    throw new Error('play_all_lines_failed:' + failures.join('|'))
 }
 
 async function search(ext) {
@@ -479,21 +530,16 @@ async function search(ext) {
     const text = textOf(ext.text || ext.wd || ext.keyword).trim()
     const page = Number(ext.page || 1) || 1
     if (!text) return jsonify({ list: [], page, pagecount: 1 })
-
-    const payload = {
+    const json = await apiRequest('POST', '/vod-app/vod/segSearch', {
         key: text,
         limit: '20',
         page: String(page),
         timestamp: ts(),
-    }
-
-    const json = await apiRequest('POST', '/vod-app/vod/segSearch', payload, 'search')
+    }, 'search')
     const data = json.data || {}
     const items = Array.isArray(data.data) ? data.data : []
-    const list = items.map(toCard).filter(Boolean)
-
     return jsonify({
-        list,
+        list: items.map(toCard).filter(Boolean),
         page,
         pagecount: Number(data.totalPageCount || 1),
     })
