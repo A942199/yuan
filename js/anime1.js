@@ -62,8 +62,6 @@ function getHeaderValues(headers, target) {
 
 function splitSetCookieLine(line) {
     if (!line) return []
-    // Split only at a comma followed by a new cookie-name=. This preserves
-    // commas inside Expires=Wed, 21 Oct ...
     return String(line)
         .split(/,(?=\s*[!#$%&'*+\-.^_`|~0-9A-Za-z]+=)/)
         .map((s) => s.trim())
@@ -173,8 +171,6 @@ async function getTracks(ext) {
         })
         const pages = parseTracksFromHtml(first.data, tracks, seen)
 
-        // Fetch discovered WordPress pagination links. Limit requests to keep
-        // this source responsive even for very long series.
         for (const pageUrl of pages.slice(0, 8)) {
             if (pageUrl === firstUrl) continue
             try {
@@ -221,7 +217,9 @@ async function getPlayinfo(ext) {
 
         if (!apireq) throw new Error('Anime1 data-apireq not found')
 
-        const apires = await $fetch.post(api, `d=${encodeURIComponent(apireq)}`, {
+        // data-apireq is already a signed/encoded Anime1 payload. Do not
+        // encodeURIComponent() it again or the API returns Signature invalid.
+        const apires = await $fetch.post(api, `d=${apireq}`, {
             headers: {
                 'User-Agent': UA,
                 'Content-Type': 'application/x-www-form-urlencoded',
