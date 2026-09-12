@@ -1,0 +1,54 @@
+name: PPnix Cloudflare Worker E2E
+
+on:
+  push:
+    branches:
+      - test/ppnix-live
+    paths:
+      - '.github/workflows/ppnix-worker-e2e.yml'
+  workflow_dispatch:
+
+jobs:
+  worker-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Wait for production diagnostic and run full playback chain
+        shell: bash
+        run: |
+          set +e
+          rm -f ppnix-worker-report.json
+          for i in $(seq 1 10); do
+            echo "attempt $i"
+            http_code=$(curl -sS --max-time 35 \
+              -H 'Accept: application/json' \
+              -o ppnix-worker-report.json \
+              -w '%{http_code}' \
+              'https://video.zi-quan.com/__diag/ppnix-live-20260912')
+            curl_exit=$?
+            echo "curl_exit=$curl_exit http_code=$http_code"
+            cat ppnix-worker-report.json 2>/dev/null || true
+            echo
+
+            if [ "$curl_exit" -eq 0 ] && [ "$http_code" = "200" ] && \
+               jq -e '.test == "ppnix-worker-live-v1"' ppnix-worker-report.json >/dev/null 2>&1; then
+              break
+            fi
+            sleep 15
+          done
+
+          if ! jq -e '.test == "ppnix-worker-live-v1"' ppnix-worker-report.json >/dev/null 2>&1; then
+            echo 'diagnostic endpoint never became available'
+            exit 2
+          fi
+
+          echo '--- final report ---'
+          jq . ppnix-worker-report.json
+          jq -e '.ok == true' ppnix-worker-report.json >/dev/null
+
+      - name: Upload worker E2E report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ppnix-worker-e2e-report
+          path: ppnix-worker-report.json
