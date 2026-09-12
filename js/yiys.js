@@ -433,7 +433,7 @@ async function resolvePlayCandidate(candidate) {
         const json = await apiRequest('POST', '/vod-app/vod/playUrl', {
             sourceCode: sourceCode == null ? '' : sourceCode,
             timestamp: ts(),
-            urlEncode: rawUrl,
+            urlEncode: encodeURIComponent(rawUrl),
         }, 'play')
         const playUrl = textOf(json && json.data && json.data.url).trim()
         if (/^https?:\/\//i.test(playUrl)) {
