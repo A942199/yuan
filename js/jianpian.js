@@ -432,26 +432,35 @@ async function getTracks(ext) {
 
         // 前端诊断只会抽测前几条线路，优先选择实测较稳定且彼此独立的 CDN。
         const priority = (source) => {
+            const key = String(source.source_key || '').toLowerCase()
             const label = `${source.source_key || ''} ${source.name || ''}`.toLowerCase()
-            if (label.includes('lz')) return 0
-            if (label.includes('sd')) return 1
-            if (label.includes('高清1') || label.includes('dytt')) return 2
-            if (label.includes('蓝光')) return 3
-            if (label.includes('vip')) return 4
-            return 5
+            if (key === 'back_source_list_cdn' || label.includes('vip') || label.includes('极速') || label.includes('高速')) return 0
+            if (key === 'back_source_list_dszy' || label.includes('蓝光')) return 1
+            if (key === 'back_source_list_hnzy' || key === 'back_source_list_hhzy' || key === 'back_source_list_mtzy') return 2
+            if (label.includes('高清4') || label.includes('高清3')) return 3
+            if (label.includes('lz')) return 90
+            return 10
         }
 
         sources.slice().sort((a, b) => priority(a) - priority(b)).forEach((e) => {
             if (e.source_key === 'back_source_list_p2p' || !Array.isArray(e.source_list)) return
             let title = e.name
             let tracks = []
-            e.source_list.forEach((item) => {
+            e.source_list.forEach((item, index) => {
                 const playUrl = String(item.url || '').trim()
                 if (!/^https?:\/\//i.test(playUrl) || seen.has(playUrl)) return
                 seen.add(playUrl)
                 tracks.push({
                     name: item.source_name || `播放${tracks.length + 1}`,
-                    ext: { url: playUrl },
+                    ext: {
+                        url: playUrl,
+                        fallbacks: sources
+                            .filter((alt) => alt !== e && Array.isArray(alt.source_list))
+                            .map((alt) => alt.source_list[index])
+                            .filter((altItem) => altItem && /^https?:\/\//i.test(String(altItem.url || '')))
+                            .map((altItem) => String(altItem.url).trim())
+                            .filter((altUrl) => altUrl && altUrl !== playUrl),
+                    },
                 })
             })
             if (tracks.length > 0) {
@@ -468,14 +477,36 @@ async function getTracks(ext) {
     return JSON.stringify({ list: list })
 }
 
+async function isPlayableSourceUrl(url, headers) {
+    const value = String(url || '').trim()
+    if (!/^https?:\/\//i.test(value)) return false
+    if (!/\.m3u8(?:$|[?#])/i.test(value)) return true
+    try {
+        const resp = await $fetch.get(value, { headers: headers })
+        const status = Number(resp && resp.status || 200)
+        const body = String(resp && resp.data || '').replace(/^\uFEFF/, '').trimStart()
+        return status >= 200 && status < 400 && body.startsWith('#EXTM3U')
+    } catch (_) {
+        return false
+    }
+}
+
 async function getPlayinfo(ext) {
     ext = JSON.parse(ext)
     let { url } = ext
-    let playUrl = url
     let header = getHeader()
-
-    if (!/^https?:\/\//i.test(playUrl || '')) return JSON.stringify({ urls: [] })
-    return JSON.stringify({ urls: [playUrl], headers: [header] })
+    const candidates = [url].concat(Array.isArray(ext.fallbacks) ? ext.fallbacks : [])
+    const seen = new Set()
+    for (const candidate of candidates) {
+        const playUrl = String(candidate || '').trim()
+        if (!/^https?:\/\//i.test(playUrl) || seen.has(playUrl)) continue
+        seen.add(playUrl)
+        if (await isPlayableSourceUrl(playUrl, header)) {
+            return JSON.stringify({ urls: [playUrl], headers: [header] })
+        }
+        $print('source_media_unavailable', playUrl)
+    }
+    return JSON.stringify({ urls: [] })
 }
 
 async function search(ext) {
