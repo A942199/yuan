@@ -1,10 +1,11 @@
 const CryptoJS = createCryptoJS()
 
 const UA = 'Android/OkHttp'
-const SITE = 'https://aleig4ah.yiys05.com'
+const SITE = 'https://otkxofv8.yiys08.com'
 const FALLBACK_SITES = [
     SITE,
-    SITE.replace(/^https:/i, 'http:'),
+    'https://api2233.yiys06.com',
+    'https://ws4afrx6.yiys06.com',
 ]
 const PUB_KEY =
     '-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAw4qpeOgv+MeXi57MVPqZF7SRmHR3FUelCTfrvI6vZ8kgTPpe1gMyP/8ZTvedTYjTDMqZBmn8o8Ym98yTx3zHaskPpmDR80e+rcRciPoYZcWNpwpFkrHp1l6Pjs9xHLXzf3U+N3a8QneY+jSMvgMbr00DC4XfvamfrkPMXQ+x9t3gNcP5YtuRhGFREBKP2q20gP783MCOBFwyxhZTIAsFiXrLkgZ97uaUAtqW6wtKR4HWpeaN+RLLxhBdnVjuMc9jaBl6sHMdSvTJgAajBTAd6LLA9cDmbGTxH7RGp//iZU86kFhxGl5yssZvBcx/K95ADeTmLKCsabexZVZ0Fu3dDQIDAQAB\n-----END PUBLIC KEY-----'
@@ -424,6 +425,20 @@ async function getTracks(ext) {
     return jsonify({ list })
 }
 
+async function isPlayableMediaUrl(url) {
+    const value = textOf(url).trim()
+    if (!/^https?:\/\//i.test(value)) return false
+    if (!/\.m3u8(?:$|[?#])/i.test(value)) return true
+    try {
+        const resp = await $fetch.get(value, { headers: { 'User-Agent': UA } })
+        const status = Number(resp && resp.status || 200)
+        const body = textOf(resp && resp.data).replace(/^\uFEFF/, '').trimStart()
+        return status >= 200 && status < 400 && body.startsWith('#EXTM3U')
+    } catch (_) {
+        return false
+    }
+}
+
 async function resolvePlayCandidate(candidate) {
     const sourceCode = candidate && candidate.sourceCode
     const rawUrl = textOf(candidate && candidate.url).trim()
@@ -437,7 +452,8 @@ async function resolvePlayCandidate(candidate) {
         }, 'play')
         const playUrl = textOf(json && json.data && json.data.url).trim()
         if (/^https?:\/\//i.test(playUrl)) {
-            return { ok: true, url: playUrl, reason: 'resolved' }
+            if (await isPlayableMediaUrl(playUrl)) return { ok: true, url: playUrl, reason: 'resolved' }
+            return { ok: false, reason: 'resolved_media_dead' }
         }
     } catch (e) {
         if (!/^https?:\/\//i.test(rawUrl)) {
@@ -446,7 +462,8 @@ async function resolvePlayCandidate(candidate) {
     }
 
     if (/^https?:\/\//i.test(rawUrl)) {
-        return { ok: true, url: rawUrl, reason: 'raw_direct' }
+        if (await isPlayableMediaUrl(rawUrl)) return { ok: true, url: rawUrl, reason: 'raw_direct' }
+        return { ok: false, reason: 'raw_media_dead' }
     }
 
     return { ok: false, reason: 'no_play_url' }
