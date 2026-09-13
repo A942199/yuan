@@ -1,0 +1,73 @@
+name: Strict BD media diagnostic
+
+on:
+  push:
+    branches:
+      - fix/bd-media-validation-20260913
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Strict YiYS target playback probe
+        env:
+          YIYS_TEST_TITLE: 千与千寻
+        run: node scripts/test-yiys-live.mjs
+      - name: Strict Jianpian target playback probe
+        shell: bash
+        run: |
+          node <<'NODE'
+          const BASE='https://api.ztcgi.com'
+          const UA='Mozilla/5.0 (Linux; Android 9; V2196A Build/PQ3A.190705.08211809; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/91.0.4472.114 Mobile Safari/537.36;webank/h5face;webank/1.0;netType:NETWORK_WIFI;appVersion:416;packageName:com.jp3.xg3'
+          const headers={'User-Agent':UA,'Referer':BASE,'Origin':BASE}
+          const title='千与千寻'
+          const timeout=(ms=15000)=>AbortSignal.timeout(ms)
+          async function getJson(url){const r=await fetch(url,{headers,signal:timeout()}); const t=await r.text(); if(!r.ok) throw new Error(`${url} http_${r.status} ${t.slice(0,180)}`); return JSON.parse(t)}
+          async function probe(url){
+            try{
+              const r=await fetch(url,{headers,redirect:'follow',signal:timeout()})
+              const ct=r.headers.get('content-type')||''
+              const reader=r.body&&r.body.getReader(); let b=Buffer.alloc(0)
+              if(reader){const x=await reader.read(); if(x.value)b=Buffer.from(x.value).subarray(0,131072); try{await reader.cancel()}catch{}}
+              const text=b.toString('utf8')
+              let segment=null
+              if((/mpegurl/i.test(ct)||text.startsWith('#EXTM3U')) && r.ok){
+                const line=text.split(/\r?\n/).map(s=>s.trim()).find(s=>s&&!s.startsWith('#'))
+                if(line){
+                  const child=new URL(line,r.url).toString()
+                  const sr=await fetch(child,{headers:{...headers,Range:'bytes=0-65535'},redirect:'follow',signal:timeout()})
+                  const sb=Buffer.from(await sr.arrayBuffer()).subarray(0,65536)
+                  segment={url:sr.url,status:sr.status,ct:sr.headers.get('content-type')||'',bytes:sb.length}
+                }
+              }
+              return {ok:r.ok,status:r.status,url:r.url,ct,bytes:b.length,is_hls:/mpegurl/i.test(ct)||text.startsWith('#EXTM3U'),segment}
+            }catch(e){return {ok:false,error:String(e&&e.message||e)}}
+          }
+          const search=await getJson(`${BASE}/api/v2/search/videoV2?key=${encodeURIComponent(title)}&category_id=88&page=1&pageSize=20`)
+          const list=Array.isArray(search.data)?search.data:[]
+          const chosen=list.find(x=>String(x.title||'').trim()===title)||list[0]
+          if(!chosen||!chosen.id) throw new Error('jianpian_search_no_result')
+          console.log('JIANPIAN_CHOSEN',chosen.id,chosen.title)
+          const detail=await getJson(`${BASE}/api/video/detailv2?id=${chosen.id}`)
+          const groups=detail?.data?.source_list_source||[]
+          let playable=0
+          for(const g of groups){
+            if(g.source_key==='back_source_list_p2p'||!Array.isArray(g.source_list)) continue
+            for(let i=0;i<Math.min(g.source_list.length,3);i++){
+              const item=g.source_list[i]; if(!item?.url) continue
+              const p=await probe(String(item.url))
+              console.log('JIANPIAN_LINE',JSON.stringify({group:g.name,key:g.source_key,item:item.source_name||'',url:item.url,probe:p}))
+              if(p.ok&&(!p.is_hls||p.segment&&p.segment.status>=200&&p.segment.status<400&&p.segment.bytes>0)) playable++
+            }
+          }
+          console.log('JIANPIAN_PLAYABLE_PROBES',playable)
+          if(!playable) process.exit(2)
+          NODE
