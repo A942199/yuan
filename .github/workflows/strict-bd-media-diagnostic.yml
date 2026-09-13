@@ -25,6 +25,7 @@ jobs:
         run: |
           python scripts/apply-bd-media-fix.py
           echo "changed=$(cat /tmp/patch_changed)" >> "$GITHUB_OUTPUT"
+          # On the committed-source verification run this must print PATCH_CHANGED False.
 
       - name: Syntax checks
         run: |
@@ -94,6 +95,10 @@ jobs:
           })().catch(e=>{console.error(e);process.exit(1)})
           NODE
           node /tmp/test-jianpian.cjs
+
+      - name: Assert committed source needed no patch
+        if: steps.patch.outputs.changed == '0'
+        run: echo STRICT_COMMITTED_SOURCE_STATE_PASS
 
       - name: Commit source fixes after strict tests
         if: steps.patch.outputs.changed == '1'
