@@ -20,63 +20,10 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Apply source fixes in test workspace
+      - name: Apply source fixes in workspace
         id: patch
-        shell: bash
         run: |
-          python <<'PY'
-          from pathlib import Path
-          changed = False
-
-          yiys = Path('js/yiys.js')
-          text = yiys.read_text()
-          if 'resolved_media_dead' not in text:
-              old = """const SITE = 'https://aleig4ah.yiys05.com'\nconst FALLBACK_SITES = [\n    SITE,\n    SITE.replace(/^https:/i, 'http:'),\n]"""
-              new = """const SITE = 'https://otkxofv8.yiys08.com'\nconst FALLBACK_SITES = [\n    SITE,\n    'https://api2233.yiys06.com',\n    'https://ws4afrx6.yiys06.com',\n]"""
-              if old not in text: raise SystemExit('yiys host block not found')
-              text = text.replace(old, new, 1)
-              marker = 'async function resolvePlayCandidate(candidate) {'
-              helper = """async function isPlayableMediaUrl(url) {\n    const value = textOf(url).trim()\n    if (!/^https?:\\/\\//i.test(value)) return false\n    if (!/\\.m3u8(?:$|[?#])/i.test(value)) return true\n    try {\n        const resp = await $fetch.get(value, { headers: { 'User-Agent': UA } })\n        const status = Number(resp && resp.status || 200)\n        const body = textOf(resp && resp.data).replace(/^\\uFEFF/, '').trimStart()\n        return status >= 200 && status < 400 && body.startsWith('#EXTM3U')\n    } catch (_) {\n        return false\n    }\n}\n\n"""
-              if marker not in text: raise SystemExit('yiys resolve marker missing')
-              text = text.replace(marker, helper + marker, 1)
-              old = """        if (/^https?:\\/\\//i.test(playUrl)) {\n            return { ok: true, url: playUrl, reason: 'resolved' }\n        }"""
-              new = """        if (/^https?:\\/\\//i.test(playUrl)) {\n            if (await isPlayableMediaUrl(playUrl)) return { ok: true, url: playUrl, reason: 'resolved' }\n            return { ok: false, reason: 'resolved_media_dead' }\n        }"""
-              if old not in text: raise SystemExit('yiys resolved block missing')
-              text = text.replace(old, new, 1)
-              old = """    if (/^https?:\\/\\//i.test(rawUrl)) {\n        return { ok: true, url: rawUrl, reason: 'raw_direct' }\n    }"""
-              new = """    if (/^https?:\\/\\//i.test(rawUrl)) {\n        if (await isPlayableMediaUrl(rawUrl)) return { ok: true, url: rawUrl, reason: 'raw_direct' }\n        return { ok: false, reason: 'raw_media_dead' }\n    }"""
-              if old not in text: raise SystemExit('yiys raw block missing')
-              text = text.replace(old, new, 1)
-              yiys.write_text(text)
-              changed = True
-
-          jp = Path('js/jianpian.js')
-          text = jp.read_text()
-          if 'source_media_unavailable' not in text:
-              old = """        const priority = (source) => {\n            const label = `${source.source_key || ''} ${source.name || ''}`.toLowerCase()\n            if (label.includes('lz')) return 0\n            if (label.includes('sd')) return 1\n            if (label.includes('高清1') || label.includes('dytt')) return 2\n            if (label.includes('蓝光')) return 3\n            if (label.includes('vip')) return 4\n            return 5\n        }"""
-              new = """        const priority = (source) => {\n            const key = String(source.source_key || '').toLowerCase()\n            const label = `${source.source_key || ''} ${source.name || ''}`.toLowerCase()\n            if (key === 'back_source_list_cdn' || label.includes('vip') || label.includes('极速') || label.includes('高速')) return 0\n            if (key === 'back_source_list_dszy' || label.includes('蓝光')) return 1\n            if (key === 'back_source_list_hnzy' || key === 'back_source_list_hhzy' || key === 'back_source_list_mtzy') return 2\n            if (label.includes('高清4') || label.includes('高清3')) return 3\n            if (label.includes('lz')) return 90\n            return 10\n        }"""
-              if old not in text: raise SystemExit('jianpian priority block missing')
-              text = text.replace(old, new, 1)
-
-              old = """                    ext: { url: playUrl },\n                })"""
-              new = """                    ext: {\n                        url: playUrl,\n                        fallbacks: sources\n                            .filter((alt) => alt !== e && Array.isArray(alt.source_list))\n                            .map((alt) => alt.source_list[index])\n                            .filter((altItem) => altItem && /^https?:\\/\\//i.test(String(altItem.url || '')))\n                            .map((altItem) => String(altItem.url).trim())\n                            .filter((altUrl) => altUrl && altUrl !== playUrl),\n                    },\n                })"""
-              if old not in text: raise SystemExit('jianpian track ext block missing')
-              text = text.replace(old, new, 1)
-
-              marker = 'async function getPlayinfo(ext) {'
-              helper = """async function isPlayableSourceUrl(url, headers) {\n    const value = String(url || '').trim()\n    if (!/^https?:\\/\\//i.test(value)) return false\n    if (!/\\.m3u8(?:$|[?#])/i.test(value)) return true\n    try {\n        const resp = await $fetch.get(value, { headers: headers })\n        const status = Number(resp && resp.status || 200)\n        const body = String(resp && resp.data || '').replace(/^\\uFEFF/, '').trimStart()\n        return status >= 200 && status < 400 && body.startsWith('#EXTM3U')\n    } catch (_) {\n        return false\n    }\n}\n\n"""
-              if marker not in text: raise SystemExit('jianpian play marker missing')
-              text = text.replace(marker, helper + marker, 1)
-              old = """    let { url } = ext\n    let playUrl = url\n    let header = getHeader()\n\n    if (!/^https?:\\/\\//i.test(playUrl || '')) return JSON.stringify({ urls: [] })\n    return JSON.stringify({ urls: [playUrl], headers: [header] })"""
-              new = """    let { url } = ext\n    let header = getHeader()\n    const candidates = [url].concat(Array.isArray(ext.fallbacks) ? ext.fallbacks : [])\n    const seen = new Set()\n    for (const candidate of candidates) {\n        const playUrl = String(candidate || '').trim()\n        if (!/^https?:\\/\\//i.test(playUrl) || seen.has(playUrl)) continue\n        seen.add(playUrl)\n        if (await isPlayableSourceUrl(playUrl, header)) {\n            return JSON.stringify({ urls: [playUrl], headers: [header] })\n        }\n        $print('source_media_unavailable', playUrl)\n    }\n    return JSON.stringify({ urls: [] })"""
-              if old not in text: raise SystemExit('jianpian playinfo body missing')
-              text = text.replace(old, new, 1)
-              jp.write_text(text)
-              changed = True
-
-          Path('/tmp/patch_changed').write_text('1' if changed else '0')
-          print('PATCH_CHANGED', changed)
-          PY
+          python scripts/apply-bd-media-fix.py
           echo "changed=$(cat /tmp/patch_changed)" >> "$GITHUB_OUTPUT"
 
       - name: Syntax checks
@@ -87,16 +34,21 @@ jobs:
           grep -q 'source_media_unavailable' js/jianpian.js
           grep -q 'https://otkxofv8.yiys08.com' js/yiys.js
 
-      - name: Strict YiYS regression playback
+      - name: Strict YiYS known-good regression
         run: node scripts/test-yiys-live.mjs
 
-      - name: Confirm YiYS dead title is rejected rather than false-positive
-        continue-on-error: true
-        env:
-          YIYS_TEST_TITLE: 千与千寻
-        run: node scripts/test-yiys-live.mjs
+      - name: Strict YiYS dead-media rejection
+        shell: bash
+        run: |
+          set +e
+          YIYS_TEST_TITLE='千与千寻' node scripts/test-yiys-live.mjs
+          rc=$?
+          set -e
+          test "$rc" -ne 0
+          grep -q 'no_verified_playable_line' yiys-live-report.json
+          echo STRICT_YIYS_DEAD_MEDIA_REJECTION_PASS
 
-      - name: Strict Jianpian source runtime to media
+      - name: Strict Jianpian source runtime to first media bytes
         shell: bash
         run: |
           cat >/tmp/test-jianpian.cjs <<'NODE'
@@ -124,7 +76,8 @@ jobs:
             const sourceHeaders=Object.assign({},...(Array.isArray(play.headers)?play.headers:[play.headers||{}]))
             let current=url
             for(let depth=0;depth<5;depth++){
-              const res=await fetch(current,{headers:sourceHeaders,redirect:'follow',signal:timeout()})
+              const headers={...sourceHeaders}; if(depth>0) headers.Range='bytes=0-65535'
+              const res=await fetch(current,{headers,redirect:'follow',signal:timeout()})
               const buf=Buffer.from(await res.arrayBuffer()), text=buf.toString('utf8'), ct=res.headers.get('content-type')||''
               if(!res.ok) throw new Error('media_http_'+res.status)
               if(/^#EXTM3U/.test(text)||/mpegurl/i.test(ct)){
@@ -133,17 +86,16 @@ jobs:
                 current=new URL(next,res.url).toString(); continue
               }
               if(!buf.length) throw new Error('empty_media')
-              console.log('STRICT_JIANPIAN_MEDIA_PASS',res.status,ct,buf.length); return
+              if(depth===0 && /html|json/i.test(ct)) throw new Error('unexpected_media_type_'+ct)
+              console.log('STRICT_JIANPIAN_MEDIA_PASS',res.status,ct,buf.length)
+              return
             }
-            const res=await fetch(current,{headers:{...sourceHeaders,Range:'bytes=0-65535'},redirect:'follow',signal:timeout()})
-            const buf=Buffer.from(await res.arrayBuffer())
-            if(!(res.status===200||res.status===206)||!buf.length) throw new Error('segment_failed_'+res.status)
-            console.log('STRICT_JIANPIAN_MEDIA_PASS',res.status,res.headers.get('content-type')||'',buf.length)
+            throw new Error('hls_depth_exceeded')
           })().catch(e=>{console.error(e);process.exit(1)})
           NODE
           node /tmp/test-jianpian.cjs
 
-      - name: Commit source fixes only after strict tests
+      - name: Commit source fixes after strict tests
         if: steps.patch.outputs.changed == '1'
         shell: bash
         run: |
