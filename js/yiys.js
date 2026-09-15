@@ -439,34 +439,51 @@ async function isPlayableMediaUrl(url) {
     }
 }
 
+async function requestPlayUrl(sourceCode, rawUrl, preEncode) {
+    const json = await apiRequest('POST', '/vod-app/vod/playUrl', {
+        sourceCode: sourceCode == null ? '' : sourceCode,
+        timestamp: ts(),
+        urlEncode: preEncode ? encodeURIComponent(rawUrl) : rawUrl,
+    }, 'play')
+    const playUrl = textOf(json && json.data && json.data.url).trim()
+    if (/^https?:\/\//i.test(playUrl)) return { ok: true, url: playUrl, reason: 'resolved' }
+    const code = textOf(json && json.code).trim()
+    const message = textOf(json && (json.msg || json.message)).trim()
+    return {
+        ok: false,
+        reason: code || message ? ('play_api_' + (code || 'error') + (message ? ':' + message : '')) : 'play_api_empty_url',
+    }
+}
+
 async function resolvePlayCandidate(candidate) {
     const sourceCode = candidate && candidate.sourceCode
     const rawUrl = textOf(candidate && candidate.url).trim()
     if (!rawUrl) return { ok: false, reason: 'missing_url' }
 
-    try {
-        const json = await apiRequest('POST', '/vod-app/vod/playUrl', {
-            sourceCode: sourceCode == null ? '' : sourceCode,
-            timestamp: ts(),
-            urlEncode: encodeURIComponent(rawUrl),
-        }, 'play')
-        const playUrl = textOf(json && json.data && json.data.url).trim()
-        if (/^https?:\/\//i.test(playUrl)) {
-            if (await isPlayableMediaUrl(playUrl)) return { ok: true, url: playUrl, reason: 'resolved' }
-            return { ok: false, reason: 'resolved_media_dead' }
-        }
-    } catch (e) {
-        if (!/^https?:\/\//i.test(rawUrl)) {
-            return { ok: false, reason: errorText(e) || 'play_api_failed' }
+    const rawIsHttp = /^https?:\/\//i.test(rawUrl)
+    const modes = rawIsHttp ? [true, false] : [false, true]
+    const failures = []
+
+    for (const preEncode of modes) {
+        try {
+            const result = await requestPlayUrl(sourceCode, rawUrl, preEncode)
+            if (result.ok && result.url) {
+                if (await isPlayableMediaUrl(result.url)) return result
+                failures.push('resolved_media_dead')
+            } else {
+                failures.push(result.reason || 'play_api_failed')
+            }
+        } catch (e) {
+            failures.push(errorText(e) || 'play_api_failed')
         }
     }
 
-    if (/^https?:\/\//i.test(rawUrl)) {
+    if (rawIsHttp) {
         if (await isPlayableMediaUrl(rawUrl)) return { ok: true, url: rawUrl, reason: 'raw_direct' }
-        return { ok: false, reason: 'raw_media_dead' }
+        failures.push('raw_media_dead')
     }
 
-    return { ok: false, reason: 'no_play_url' }
+    return { ok: false, reason: failures.filter(Boolean).join('>') || 'no_play_url' }
 }
 
 async function getPlayinfo(ext) {
