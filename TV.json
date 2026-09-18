@@ -85,10 +85,196 @@
       "ext": "https://raw.githubusercontent.com/A942199/yuan/refs/heads/main/js/yiys.js"
     },
     {
-       "name": "黃果短劇",
-       "type": 3,
-       "api": "csp_huangguo",
-       "ext": "https://raw.githubusercontent.com/A942199/yuan/refs/heads/main/js/gemini-code-1788948262443.js"
-    }    
+      "name": "黃果短劇",
+      "type": 3,
+      "api": "csp_huangguo",
+      "ext": "https://raw.githubusercontent.com/A942199/yuan/refs/heads/main/js/gemini-code-1788948262443.js"
+    },
+    {
+      "name": "[兔]玩偶哥哥☁️",
+      "type": 3,
+      "api": "csp_wogg_tu",
+      "ext": "https://raw.githubusercontent.com/xiaobaitulele/xptv/refs/heads/main/vod/wogg_tu.js"
+    },
+    {
+      "name": "[兔]虎斑☁️",
+      "type": 3,
+      "api": "csp_huban_tu",
+      "ext": "https://raw.githubusercontent.com/xiaobaitulele/xptv/refs/heads/main/vod/huban_tu.js"
+    },
+    {
+      "name": "[兔]观影☁️",
+      "type": 3,
+      "api": "csp_gying_tu",
+      "ext": "https://raw.githubusercontent.com/xiaobaitulele/xptv/refs/heads/main/vod/gying_tu.js"
+    },
+    {
+      "name": "[兔]seedhub☁️",
+      "type": 3,
+      "api": "csp_seedhub_tu",
+      "ext": "https://raw.githubusercontent.com/xiaobaitulele/xptv/refs/heads/main/vod/seedhub_tu.js"
+    },
+    {
+      "name": "[兔]趣盘搜☁️",
+      "type": 3,
+      "api": "csp_qps_tu",
+      "ext": "https://raw.githubusercontent.com/xiaobaitulele/xptv/refs/heads/main/vod/qps_tu.js"
+    },
+    {
+      "name": "[兔]tg搜索☁️",
+      "type": 3,
+      "api": "csp_tgs_tu",
+      "ext": "https://raw.githubusercontent.com/xiaobaitulele/xptv/refs/heads/main/vod/tgs_tu.js"
+    },
+    {
+      "name": "[兔]人人电影网☁️",
+      "type": 3,
+      "api": "csp_rrdynb_tu",
+      "ext": "https://raw.githubusercontent.com/xiaobaitulele/xptv/refs/heads/main/vod/rrdynb_tu.js"
+    },
+    {
+      "name": "[兔]libvio🎬☁️",
+      "type": 3,
+      "api": "csp_libvio_tu",
+      "ext": "https://raw.githubusercontent.com/xiaobaitulele/xptv/refs/heads/main/vod/libvio_tu.js"
+    },
+    {
+      "name": "[兔]爱电影🎬️",
+      "type": 3,
+      "api": "csp_ivdy_tu",
+      "ext": "https://raw.githubusercontent.com/xiaobaitulele/xptv/refs/heads/main/vod/ivdy_tu.js"
+    },
+    {
+      "name": "[兔]枫叶影院🎬️",
+      "type": 3,
+      "api": "csp_maihaolian_tu",
+      "ext": "https://raw.githubusercontent.com/xiaobaitulele/xptv/refs/heads/main/vod/maihaolian_tu.js"
+    },
+    {
+      "name": "[兔]美剧2046🎬️",
+      "type": 3,
+      "api": "csp_meiju2046_tu",
+      "ext": "https://ghp.xptvhelper.link/https://raw.githubusercontent.com/xiaobaitulele/xptv/refs/heads/main/vod/meiju2046_tu.js"
+    },
+    {
+      "name": "[兔]网飞猫🎬",
+      "type": 3,
+      "api": "csp_wangfeimao_tu",
+      "ext": "https://raw.githubusercontent.com/xiaobaitulele/xptv/refs/heads/main/vod/wangfeimao_tu.js"
+    },
+    {
+      "name": "[兔]剧踪电影网🎬️",
+      "type": 3,
+      "api": "csp_juzong_tu",
+      "ext": "https://raw.githubusercontent.com/xiaobaitulele/xptv/refs/heads/main/vod/juzong_tu.js"
+    },
+    {
+      "name": "[兔]瓜子web🎬",
+      "type": 3,
+      "api": "csp_guazi_tu",
+      "ext": "https://raw.githubusercontent.com/xiaobaitulele/xptv/refs/heads/main/vod/guazi_tu.js"
+    },
+    {
+      "name": "[兔]低端影视🎬",
+      "type": 3,
+      "api": "csp_ddysio_tu",
+      "ext": "https://raw.githubusercontent.com/xiaobaitulele/xptv/refs/heads/main/vod/ddysio_tu.js"
+    },
+    {
+      "name": "[兔]北觅影视🎬",
+      "type": 3,
+      "api": "csp_beimiys_tu",
+      "ext": "https://raw.githubusercontent.com/xiaobaitulele/xptv/refs/heads/main/vod/beimiys_tu.js"
+    },
+    {
+      "name": "[兔]乌云影视🎬",
+      "type": 3,
+      "api": "csp_wooyun_tu",
+      "ext": "https://raw.githubusercontent.com/xiaobaitulele/xptv/refs/heads/main/vod/wooyun_tu.js"
+    },
+    {
+      "name": "[兔]落雪影视(无搜索)🎬",
+      "type": 3,
+      "api": "csp_luoxueys_tu",
+      "ext": "https://raw.githubusercontent.com/xiaobaitulele/xptv/refs/heads/main/vod/luoxueys_tu.js"
+    },
+    {
+      "name": "[兔]youknow(无搜索)🎬",
+      "type": 3,
+      "api": "csp_youknow_tu",
+      "ext": "https://raw.githubusercontent.com/xiaobaitulele/xptv/refs/heads/main/vod/youknow_tu.js"
+    },
+    {
+      "name": "[兔]旺旺影视(无搜索)🎬",
+      "type": 3,
+      "api": "csp_wangwangys_tu",
+      "ext": "https://raw.githubusercontent.com/xiaobaitulele/xptv/refs/heads/main/vod/wangwangys_tu.js"
+    },
+    {
+      "name": "[兔]123TV🎬",
+      "type": 3,
+      "api": "csp_123TV_tu",
+      "ext": "https://raw.githubusercontent.com/xiaobaitulele/xptv/refs/heads/main/vod/123TV_tu.js"
+    },
+    {
+      "name": "[兔]飞快TV🎬",
+      "type": 3,
+      "api": "csp_feikuai_tu",
+      "ext": "https://raw.githubusercontent.com/xiaobaitulele/xptv/refs/heads/main/vod/feikuai_tu.js"
+    },
+    {
+      "name": "[兔]ZIP0🎬",
+      "type": 3,
+      "api": "csp_zip0_tu",
+      "ext": "https://raw.githubusercontent.com/xiaobaitulele/xptv/refs/heads/main/vod/zip0_tu.js"
+    },
+    {
+      "name": "[兔]ギリギリ动漫APP🌸",
+      "type": 3,
+      "api": "csp_girigiriloveapp_tu",
+      "ext": "https://raw.githubusercontent.com/xiaobaitulele/xptv/refs/heads/main/vod/girigiriloveapp_tu.js"
+    },
+    {
+      "name": "[兔]ギリギリ动漫WEB🌸⚠️️",
+      "type": 3,
+      "api": "csp_girigirilove_tu",
+      "ext": "https://raw.githubusercontent.com/xiaobaitulele/xptv/refs/heads/main/vod/girigirilove_tu.js"
+    },
+    {
+      "name": "[兔]次元方舟(无搜索)🌸",
+      "type": 3,
+      "api": "csp_cyfz_tu",
+      "ext": "https://raw.githubusercontent.com/xiaobaitulele/xptv/refs/heads/main/vod/cyfz_tu.js"
+    },
+    {
+      "name": "[兔]2k动漫(无搜索)🌸",
+      "type": 3,
+      "api": "csp_2ksp_tu",
+      "ext": "https://raw.githubusercontent.com/xiaobaitulele/xptv/refs/heads/main/vod/2ksp_tu.js"
+    },
+    {
+      "name": "[兔]路漫漫(无搜索)🌸",
+      "type": 3,
+      "api": "csp_lumm85_tu",
+      "ext": "https://raw.githubusercontent.com/xiaobaitulele/xptv/refs/heads/main/vod/lumm85_tu.js"
+    },
+    {
+      "name": "[兔]次元城动画🌸",
+      "type": 3,
+      "api": "csp_cyc_tu",
+      "ext": "https://raw.githubusercontent.com/xiaobaitulele/xptv/refs/heads/main/vod/cyc_tu.js"
+    },
+    {
+      "name": "[兔]月之祠🌸",
+      "type": 3,
+      "api": "csp_yuezhici_tu",
+      "ext": "https://raw.githubusercontent.com/xiaobaitulele/xptv/refs/heads/main/vod/yuezhici_tu.js"
+    },
+    {
+      "name": "[兔]11KT🌸",
+      "type": 3,
+      "api": "csp_11kt_tu",
+      "ext": "https://raw.githubusercontent.com/xiaobaitulele/xptv/refs/heads/main/vod/11kt_tu.js"
+    }
   ]
 }
