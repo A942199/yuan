@@ -91,54 +91,6 @@
       "ext": "https://raw.githubusercontent.com/A942199/yuan/refs/heads/main/js/gemini-code-1788948262443.js"
     },
     {
-      "name": "[兔]玩偶哥哥☁️",
-      "type": 3,
-      "api": "csp_wogg_tu",
-      "ext": "https://raw.githubusercontent.com/xiaobaitulele/xptv/refs/heads/main/vod/wogg_tu.js"
-    },
-    {
-      "name": "[兔]虎斑☁️",
-      "type": 3,
-      "api": "csp_huban_tu",
-      "ext": "https://raw.githubusercontent.com/xiaobaitulele/xptv/refs/heads/main/vod/huban_tu.js"
-    },
-    {
-      "name": "[兔]观影☁️",
-      "type": 3,
-      "api": "csp_gying_tu",
-      "ext": "https://raw.githubusercontent.com/xiaobaitulele/xptv/refs/heads/main/vod/gying_tu.js"
-    },
-    {
-      "name": "[兔]seedhub☁️",
-      "type": 3,
-      "api": "csp_seedhub_tu",
-      "ext": "https://raw.githubusercontent.com/xiaobaitulele/xptv/refs/heads/main/vod/seedhub_tu.js"
-    },
-    {
-      "name": "[兔]趣盘搜☁️",
-      "type": 3,
-      "api": "csp_qps_tu",
-      "ext": "https://raw.githubusercontent.com/xiaobaitulele/xptv/refs/heads/main/vod/qps_tu.js"
-    },
-    {
-      "name": "[兔]tg搜索☁️",
-      "type": 3,
-      "api": "csp_tgs_tu",
-      "ext": "https://raw.githubusercontent.com/xiaobaitulele/xptv/refs/heads/main/vod/tgs_tu.js"
-    },
-    {
-      "name": "[兔]人人电影网☁️",
-      "type": 3,
-      "api": "csp_rrdynb_tu",
-      "ext": "https://raw.githubusercontent.com/xiaobaitulele/xptv/refs/heads/main/vod/rrdynb_tu.js"
-    },
-    {
-      "name": "[兔]libvio🎬☁️",
-      "type": 3,
-      "api": "csp_libvio_tu",
-      "ext": "https://raw.githubusercontent.com/xiaobaitulele/xptv/refs/heads/main/vod/libvio_tu.js"
-    },
-    {
       "name": "[兔]爱电影🎬️",
       "type": 3,
       "api": "csp_ivdy_tu",
