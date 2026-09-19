@@ -5,12 +5,9 @@ function __cspNormalizeMediaUrl(value, base) {
     s = s.replace(/\\\//g, '/').replace(/&amp;/g, '&').replace(/^["']|["']$/g, '')
     try { s = decodeURIComponent(s) } catch (_) {}
 
-    const positions = []
-    const schemeRe = /https?:\/\//ig
-    let match
-    while ((match = schemeRe.exec(s)) !== null) positions.push(match.index)
-    if (positions.length > 1) s = s.slice(positions[positions.length - 1])
-    else if (positions.length === 1 && positions[0] > 0) s = s.slice(positions[0])
+    const firstScheme = s.search(/https?:\/\//i)
+    if (firstScheme > 0) s = s.slice(firstScheme)
+    if (/^[a-z][a-z0-9+.-]*:/i.test(s) && !/^https?:\/\//i.test(s)) return ''
 
     if (s.indexOf('//') === 0) s = 'https:' + s
     if (!/^https?:\/\//i.test(s)) {
@@ -19,12 +16,14 @@ function __cspNormalizeMediaUrl(value, base) {
         s = originMatch[0] + (s.charAt(0) === '/' ? '' : '/') + s
     }
 
-    const tail = s.replace(/^https?:\/\//i, '')
-    const nested = tail.search(/https?:\/\//i)
-    if (nested >= 0) {
-        const nestedStart = s.length - tail.length + nested
-        s = s.slice(nestedStart)
+    const schemeMatch = s.match(/^https?:\/\//i)
+    const rest = s.slice(schemeMatch ? schemeMatch[0].length : 0)
+    const nestedScheme = rest.search(/https?:\/\//i)
+    const firstSeparator = rest.search(/[\/?#]/)
+    if (nestedScheme >= 0 && (firstSeparator < 0 || nestedScheme < firstSeparator)) {
+        s = rest.slice(nestedScheme)
     }
+
     if (!/^https?:\/\/[^/\s]+/i.test(s) || /[\u0000-\u001f\u007f]/.test(s)) return ''
     return s
 }
