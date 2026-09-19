@@ -4,7 +4,7 @@ let appConfig = {
     // h5v2.cibnabg.com
     // site: 'https://ev5356.970xw.com',
     site: 'https://api.ztcgi.com',
-    imgDomain: 'img.jgsfnl.com',
+    imgDomain: 'https://img.jgsfnl.com',
     tabs: [
         { name: '首頁', ext: { id: 'home' }, ui: 1 },
         { name: '電影', ext: { id: 1 } },
@@ -343,6 +343,7 @@ async function getImgDomain() {
         return domain.startsWith('http') ? domain : 'https://' + domain
     } catch (error) {
         console.log(error)
+        return __cspNormalizeResolvedUrl(appConfig.imgDomain || 'https://img.jgsfnl.com', appConfig.site)
     }
 }
 
@@ -360,7 +361,7 @@ async function getCards(ext) {
         JSON.parse(data).data.forEach((e) => {
             const name = e.title
             const id = e.jump_id
-            const pic = appConfig.imgDomain + e.thumbnail
+            const pic = __cspNormalizeResolvedUrl(e.thumbnail, appConfig.imgDomain)
 
             cards.push({
                 vod_id: id.toString(),
@@ -370,6 +371,7 @@ async function getCards(ext) {
             })
         })
 
+        cards = __cspSanitizeCards(cards, appConfig.site)
         return JSON.stringify({ list: cards })
     } else if (id === 99 || id === 50) {
         if (page > 1) return JSON.stringify({ list: [] })
@@ -380,7 +382,7 @@ async function getCards(ext) {
             e.dataList.forEach((item) => {
                 const name = item.title
                 const id = item.id
-                const pic = appConfig.imgDomain + item.path
+                const pic = __cspNormalizeResolvedUrl(item.path, appConfig.imgDomain)
                 const remarks = item.mask
                 cards.push({
                     vod_id: id.toString(),
@@ -393,6 +395,7 @@ async function getCards(ext) {
             })
         })
 
+        cards = __cspSanitizeCards(cards, appConfig.site)
         return JSON.stringify({ list: cards })
     }
 
@@ -404,7 +407,7 @@ async function getCards(ext) {
     JSON.parse(data).data.forEach((e) => {
         const name = e.title
         const id = e.id
-        const pic = appConfig.imgDomain + e.path
+        const pic = __cspNormalizeResolvedUrl(e.path, appConfig.imgDomain)
         cards.push({
             vod_id: id.toString(),
             vod_name: name,
@@ -414,7 +417,8 @@ async function getCards(ext) {
         })
     })
 
-    return JSON.stringify({ list: cards, filter: filterObj[id] || [] })
+    cards = __cspSanitizeCards(cards, appConfig.site)
+        return JSON.stringify({ list: cards, filter: filterObj[id] || [] })
 }
 
 async function getTracks(ext) {
@@ -447,7 +451,7 @@ async function getTracks(ext) {
             let title = e.name
             let tracks = []
             e.source_list.forEach((item, index) => {
-                const playUrl = __cspNormalizeMediaUrl(item.url, appConfig.site)
+                const playUrl = __cspNormalizeResolvedUrl(item.url, appConfig.site)
                 if (!/^https?:\/\//i.test(playUrl) || seen.has(playUrl)) return
                 seen.add(playUrl)
                 tracks.push({
@@ -457,7 +461,7 @@ async function getTracks(ext) {
                         fallbacks: sources
                             .filter((alt) => alt !== e && Array.isArray(alt.source_list))
                             .map((alt) => alt.source_list[index])
-                            .map((altItem) => altItem ? __cspNormalizeMediaUrl(altItem.url, appConfig.site) : '')
+                            .map((altItem) => altItem ? __cspNormalizeResolvedUrl(altItem.url, appConfig.site) : '')
                             .filter((altUrl) => !!altUrl)
                             .filter((altUrl) => altUrl && altUrl !== playUrl),
                     },
@@ -474,15 +478,27 @@ async function getTracks(ext) {
         $print(error)
     }
 
+    list = __cspSanitizeTracks(list, appConfig.site)
     return JSON.stringify({ list: list })
 }
 
 
-function __cspNormalizeMediaUrl(value, base) {
+function __cspNormalizeResolvedUrl(value, base) {
     let s = String(value || '').trim()
     if (!s) return ''
     s = s.replace(/\\\//g, '/').replace(/&amp;/g, '&').replace(/^["']|["']$/g, '')
-    try { s = decodeURIComponent(s) } catch (_) {}
+    s = s.replace(/\\u003[aA]/g, ':').replace(/\\u002[fF]/g, '/').replace(/\\x3[aA]/g, ':').replace(/\\x2[fF]/g, '/')
+    for (let i = 0; i < 3; i++) {
+        try {
+            const decoded = decodeURIComponent(s)
+            if (decoded === s) break
+            s = decoded
+        } catch (_) {
+            break
+        }
+    }
+
+    if (/^[a-z0-9.-]+\.[a-z]{2,}(?:[/:?#]|$)/i.test(s) && !/^[a-z][a-z0-9+.-]*:/i.test(s)) s = 'https://' + s
 
     const firstScheme = s.search(/https?:\/\//i)
     if (firstScheme > 0) s = s.slice(firstScheme)
@@ -499,12 +515,52 @@ function __cspNormalizeMediaUrl(value, base) {
     const rest = s.slice(schemeMatch ? schemeMatch[0].length : 0)
     const nestedScheme = rest.search(/https?:\/\//i)
     const firstSeparator = rest.search(/[\/?#]/)
-    if (nestedScheme >= 0 && (firstSeparator < 0 || nestedScheme < firstSeparator)) {
-        s = rest.slice(nestedScheme)
-    }
+    if (nestedScheme >= 0 && (firstSeparator < 0 || nestedScheme < firstSeparator)) s = rest.slice(nestedScheme)
 
-    if (!/^https?:\/\/[^/\s]+/i.test(s) || /[\u0000-\u001f\u007f]/.test(s)) return ''
+    if (/\\/.test(s) || /[\u0000-\u001f\u007f]/.test(s)) return ''
+    const hostMatch = s.match(/^https?:\/\/(\[[^\]]+\]|[^\/?#:]+)(?::\d+)?(?:[\/?#]|$)/i)
+    if (!hostMatch) return ''
+    const host = hostMatch[1].replace(/^\[|\]$/g, '').toLowerCase()
+    if (!host || host === 'localhost' || host === '0.0.0.0' || host === '::1' ||
+        /^127\./.test(host) || /^10\./.test(host) || /^192\.168\./.test(host) ||
+        /^169\.254\./.test(host) || /^172\.(1[6-9]|2\d|3[01])\./.test(host)) return ''
+    const authority = s.replace(/^https?:\/\//i, '').split(/[\/?#]/, 1)[0]
+    if (authority.includes('@')) return ''
     return s
+}
+
+function __cspSanitizeCards(list, base) {
+    if (!Array.isArray(list)) return list
+    return list.map((card) => {
+        if (!card || typeof card !== 'object') return card
+        if (card.ext && typeof card.ext === 'object' && card.ext.url != null) {
+            const safe = __cspNormalizeResolvedUrl(card.ext.url, base)
+            if (safe) card.ext.url = safe
+            else delete card.ext.url
+        }
+        if (typeof card.vod_pic === 'string' && card.vod_pic) {
+            const safePic = __cspNormalizeResolvedUrl(card.vod_pic, base)
+            if (safePic) card.vod_pic = safePic
+            else card.vod_pic = ''
+        }
+        return card
+    })
+}
+
+function __cspSanitizeTracks(list, base) {
+    if (!Array.isArray(list)) return list
+    list.forEach((group) => {
+        if (!group || !Array.isArray(group.tracks)) return
+        group.tracks = group.tracks.filter((track) => {
+            if (!track || typeof track !== 'object') return false
+            if (!track.ext || typeof track.ext !== 'object' || track.ext.url == null) return true
+            const safe = __cspNormalizeResolvedUrl(track.ext.url, base)
+            if (!safe) return false
+            track.ext.url = safe
+            return true
+        })
+    })
+    return list.filter((group) => !group || !Array.isArray(group.tracks) || group.tracks.length > 0)
 }
 
 async function isPlayableSourceUrl(url, headers) {
@@ -528,7 +584,7 @@ async function getPlayinfo(ext) {
     const candidates = [url].concat(Array.isArray(ext.fallbacks) ? ext.fallbacks : [])
     const seen = new Set()
     for (const candidate of candidates) {
-        const playUrl = __cspNormalizeMediaUrl(candidate, appConfig.site)
+        const playUrl = __cspNormalizeResolvedUrl(candidate, appConfig.site)
         if (!/^https?:\/\//i.test(playUrl) || seen.has(playUrl)) continue
         seen.add(playUrl)
         if (await isPlayableSourceUrl(playUrl, header)) {
@@ -553,7 +609,7 @@ async function search(ext) {
     JSON.parse(data).data.forEach((e) => {
         const name = e.title
         const id = e.id
-        const pic = appConfig.imgDomain + e.thumbnail
+        const pic = __cspNormalizeResolvedUrl(e.thumbnail, appConfig.imgDomain)
         cards.push({
             vod_id: id.toString(),
             vod_name: name,
@@ -563,7 +619,8 @@ async function search(ext) {
         })
     })
 
-    return JSON.stringify({ list: cards })
+    cards = __cspSanitizeCards(cards, appConfig.site)
+        return JSON.stringify({ list: cards })
 }
 
 function getHeader() {
