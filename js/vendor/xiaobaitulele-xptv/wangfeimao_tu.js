@@ -156,16 +156,35 @@ async function fetchPage(url, opts) {
         headers['Cookie'] = cachedCookie
     }
 
-    var resp = await $fetch.get(url, { headers: headers })
-    var data = resp.data
+    var resp
+    try {
+        resp = await $fetch.get(url, { headers: headers })
+    } catch (error) {
+        var message = String(error || '')
+        if (/status provided \(\d+\).*outside the range|status[^0-9]*850/i.test(message)) {
+            $print('wangfeimao_nonstandard_status', message)
+            return ''
+        }
+        throw error
+    }
+    var data = resp && resp.data || ''
 
     if (data && data.indexOf('Protected by cdndefend') >= 0) {
         var cookie = solveCdnChallenge(data)
         if (cookie) {
             cachedCookie = cookie
             headers['Cookie'] = cookie
-            resp = await $fetch.get(url, { headers: headers })
-            data = resp.data
+            try {
+                resp = await $fetch.get(url, { headers: headers })
+                data = resp && resp.data || ''
+            } catch (error) {
+                var retryMessage = String(error || '')
+                if (/status provided \(\d+\).*outside the range|status[^0-9]*850/i.test(retryMessage)) {
+                    $print('wangfeimao_nonstandard_status_after_challenge', retryMessage)
+                    return ''
+                }
+                throw error
+            }
         }
     }
 
