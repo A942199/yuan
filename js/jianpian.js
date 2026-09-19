@@ -447,7 +447,7 @@ async function getTracks(ext) {
             let title = e.name
             let tracks = []
             e.source_list.forEach((item, index) => {
-                const playUrl = String(item.url || '').trim()
+                const playUrl = __cspNormalizeMediaUrl(item.url, appConfig.site)
                 if (!/^https?:\/\//i.test(playUrl) || seen.has(playUrl)) return
                 seen.add(playUrl)
                 tracks.push({
@@ -457,8 +457,8 @@ async function getTracks(ext) {
                         fallbacks: sources
                             .filter((alt) => alt !== e && Array.isArray(alt.source_list))
                             .map((alt) => alt.source_list[index])
-                            .filter((altItem) => altItem && /^https?:\/\//i.test(String(altItem.url || '')))
-                            .map((altItem) => String(altItem.url).trim())
+                            .map((altItem) => altItem ? __cspNormalizeMediaUrl(altItem.url, appConfig.site) : '')
+                            .filter((altUrl) => !!altUrl)
                             .filter((altUrl) => altUrl && altUrl !== playUrl),
                     },
                 })
@@ -475,6 +475,36 @@ async function getTracks(ext) {
     }
 
     return JSON.stringify({ list: list })
+}
+
+
+function __cspNormalizeMediaUrl(value, base) {
+    let s = String(value || '').trim()
+    if (!s) return ''
+    s = s.replace(/\\\//g, '/').replace(/&amp;/g, '&').replace(/^["']|["']$/g, '')
+    try { s = decodeURIComponent(s) } catch (_) {}
+
+    const firstScheme = s.search(/https?:\/\//i)
+    if (firstScheme > 0) s = s.slice(firstScheme)
+    if (/^[a-z][a-z0-9+.-]*:/i.test(s) && !/^https?:\/\//i.test(s)) return ''
+
+    if (s.indexOf('//') === 0) s = 'https:' + s
+    if (!/^https?:\/\//i.test(s)) {
+        const originMatch = String(base || '').match(/^https?:\/\/[^/]+/i)
+        if (!originMatch) return ''
+        s = originMatch[0] + (s.charAt(0) === '/' ? '' : '/') + s
+    }
+
+    const schemeMatch = s.match(/^https?:\/\//i)
+    const rest = s.slice(schemeMatch ? schemeMatch[0].length : 0)
+    const nestedScheme = rest.search(/https?:\/\//i)
+    const firstSeparator = rest.search(/[\/?#]/)
+    if (nestedScheme >= 0 && (firstSeparator < 0 || nestedScheme < firstSeparator)) {
+        s = rest.slice(nestedScheme)
+    }
+
+    if (!/^https?:\/\/[^/\s]+/i.test(s) || /[\u0000-\u001f\u007f]/.test(s)) return ''
+    return s
 }
 
 async function isPlayableSourceUrl(url, headers) {
@@ -498,7 +528,7 @@ async function getPlayinfo(ext) {
     const candidates = [url].concat(Array.isArray(ext.fallbacks) ? ext.fallbacks : [])
     const seen = new Set()
     for (const candidate of candidates) {
-        const playUrl = String(candidate || '').trim()
+        const playUrl = __cspNormalizeMediaUrl(candidate, appConfig.site)
         if (!/^https?:\/\//i.test(playUrl) || seen.has(playUrl)) continue
         seen.add(playUrl)
         if (await isPlayableSourceUrl(playUrl, header)) {
