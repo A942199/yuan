@@ -37,6 +37,7 @@ function __cspNormalizeResolvedUrl(value, base) {
     const hostMatch = s.match(/^https?:\/\/(\[[^\]]+\]|[^\/?#:]+)(?::\d+)?(?:[\/?#]|$)/i)
     if (!hostMatch) return ''
     const host = hostMatch[1].replace(/^\[|\]$/g, '').toLowerCase()
+    if (/(?:undefined|null)$/i.test(host)) return ''
     if (!host || host === 'localhost' || host === '0.0.0.0' || host === '::1' ||
         /^127\./.test(host) || /^10\./.test(host) || /^192\.168\./.test(host) ||
         /^169\.254\./.test(host) || /^172\.(1[6-9]|2\d|3[01])\./.test(host)) return ''
