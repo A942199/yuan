@@ -99,6 +99,7 @@
     {
       "name": "[兔]枫叶影院🎬️",
       "type": 3,
+      "disabled": true,
       "api": "csp_maihaolian_tu",
       "ext": "https://raw.githubusercontent.com/A942199/yuan/refs/heads/main/js/vendor/xiaobaitulele-xptv/maihaolian_tu.js"
     },
