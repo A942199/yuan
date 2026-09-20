@@ -20,7 +20,9 @@ async function getConfig() {
 async function getCards(ext) {
     ext = JSON.parse(ext);
     const page = ext.page || 1;
-    const url = `${appConfig.site}/vod/${ext.id}/${page}`;
+    const category = { 1: 'movie', 2: 'teleplay', 3: 'variety', 4: 'anime' }[ext.id];
+    if (!category) return JSON.stringify({ list: [] });
+    const url = `${appConfig.site}/vod/${category}/${page}`;
 
     const { data } = await $fetch.get(url, {
         headers: { 'User-Agent': UA }
@@ -30,11 +32,12 @@ async function getCards(ext) {
     let list = [];
 
     $('.video-card').each((_, element) => {
-        const a = $(element).find('a').first();
+        const card = $(element);
+        const a = card.attr('href') ? card : card.find('a').first();
         const href = a.attr('href');
-        const title = a.attr('title') || $(element).find('h3').text().trim();
-        const img = $(element).find('img').attr('data-src') || $(element).find('img').attr('src');
-        const remark = $(element).find('.subtitle').text().trim();
+        const title = a.attr('title') || card.find('h3').text().trim();
+        const img = card.find('img').attr('data-src') || card.find('img').attr('src');
+        const remark = card.find('.subtitle').text().trim();
 
         if (!href) return;
 
