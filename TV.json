@@ -93,6 +93,7 @@
     {
       "name": "[兔]爱电影🎬️",
       "type": 3,
+      "disabled": true,
       "api": "csp_ivdy_tu",
       "ext": "https://raw.githubusercontent.com/A942199/yuan/refs/heads/main/js/vendor/xiaobaitulele-xptv/ivdy_tu.js"
     },
@@ -106,6 +107,7 @@
     {
       "name": "[兔]美剧2046🎬️",
       "type": 3,
+      "disabled": true,
       "api": "csp_meiju2046_tu",
       "ext": "https://raw.githubusercontent.com/A942199/yuan/refs/heads/main/js/vendor/xiaobaitulele-xptv/meiju2046_tu.js"
     },
@@ -136,6 +138,7 @@
     {
       "name": "[兔]北觅影视🎬",
       "type": 3,
+      "disabled": true,
       "api": "csp_beimiys_tu",
       "ext": "https://raw.githubusercontent.com/A942199/yuan/refs/heads/main/js/vendor/xiaobaitulele-xptv/beimiys_tu.js"
     },
@@ -208,6 +211,7 @@
     {
       "name": "[兔]路漫漫(无搜索)🌸",
       "type": 3,
+      "disabled": true,
       "api": "csp_lumm85_tu",
       "ext": "https://raw.githubusercontent.com/A942199/yuan/refs/heads/main/js/vendor/xiaobaitulele-xptv/lumm85_tu.js"
     },
