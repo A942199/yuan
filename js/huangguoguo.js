@@ -10,7 +10,7 @@
 const UA =
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
 const BASE = 'https://pinjiji.vip'
-const LOGIN_TOKEN = '' // 在这里填 pinjiji.vip 已登录账号 token
+const LOGIN_TOKEN = 's1.eyJ1IjoiNWNiMWY3ZTMtZDZmYi00ODkyLWEwYzItYjczZDBmYThjYTY4IiwiZyI6MCwibiI6MCwiZSI6MTc5MjcyNDc0NX0.5e6357c554cb03d48222de05a6d3dc77066a316b6d769801b0002da669c454b3' // 在这里填 pinjiji.vip 已登录账号 token
 
 const HEADERS = {
     'User-Agent': UA,
