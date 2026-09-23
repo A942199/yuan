@@ -207,9 +207,13 @@ async function getPlayinfo(params) {
             BASE + '/api/sources/hgdj/playback',
             JSON.stringify({ data: { id: id, mediaId: ep } }),
             {
-                headers: Object.assign({}, authHeaders(TOKEN, BASE + '/content/hgdj/' + id), {
+                transport: 'bridge',
+                credentials: 'include',
+                headers: {
+                    Accept: 'application/json, text/plain, */*',
+                    Authorization: 'Bearer ' + TOKEN,
                     'Content-Type': 'application/json',
-                }),
+                },
             }
         )
         const body = typeof resp.data === 'string' ? JSON.parse(resp.data) : resp.data
