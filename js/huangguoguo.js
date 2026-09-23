@@ -51,10 +51,12 @@ async function ensureToken() {
     }
     try {
         const resp = await $fetch.post(BASE + '/api/user/anon', JSON.stringify({ data: {} }), {
-            'User-Agent': UA,
-            'Content-Type': 'application/json',
-            Accept: 'application/json, text/plain, */*',
-            Referer: BASE + '/',
+            headers: {
+                'User-Agent': UA,
+                'Content-Type': 'application/json',
+                Accept: 'application/json, text/plain, */*',
+                Referer: BASE + '/',
+            },
         })
         const body = typeof resp.data === 'string' ? JSON.parse(resp.data) : resp.data
         const token = (body.data && body.data.token) || ''
@@ -186,11 +188,13 @@ async function getPlayinfo(params) {
             BASE + '/api/sources/hgdj/playback',
             JSON.stringify({ data: { id: id, mediaId: ep } }),
             {
-                'User-Agent': UA,
-                'Content-Type': 'application/json',
-                Accept: 'application/json, text/plain, */*',
-                'Authorization': 'Bearer ' + TOKEN,
-                Referer: BASE + '/content/hgdj/' + id,
+                headers: {
+                    'User-Agent': UA,
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json, text/plain, */*',
+                    'Authorization': 'Bearer ' + TOKEN,
+                    Referer: BASE + '/content/hgdj/' + id,
+                },
             }
         )
         const body = typeof resp.data === 'string' ? JSON.parse(resp.data) : resp.data
