@@ -2,10 +2,10 @@
 // 数据源: pinjiji.vip JSON API (hgdj)
 //   列表   GET  /api/sources/hgdj/list?category=%2Fai-duanju%2F[&cursor=<b64>]  无需 token
 //   详情   GET  /api/sources/hgdj/detail?id=<id>                                无需 token
-//   播放   POST /api/sources/hgdj/playback  {"data":{"id":"..","mediaId":"1"}} + Bearer token
-//   匿名 token POST /api/user/anon {"data":{}} -> data.token (约 30 天, 过期自动重取)
+//   播放   POST /api/sources/hgdj/playback  {"data":{"id":"..","mediaId":"1"}} + 登录 Bearer token
+//   登录 token 从 CSP 私有配置 $config_str 读取，不写入公开脚本
 // m3u8 链接带限时 auth_key, 每次播放实时经 playback 接口获取, 不复用旧链接
-// 浏览器端已验证: 不登录可播放完整正片 (无截断预览)
+// 匿名 token 当前只返回约 54 秒预览/广告流，因此禁止匿名降级
 
 const UA =
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
@@ -25,6 +25,37 @@ const TABS = [
 
 let TOKEN = ''
 
+function privateConfig() {
+    let raw = ''
+    try {
+        raw = String(typeof $config_str === 'string' ? $config_str : '').trim()
+    } catch (e) {
+        raw = ''
+    }
+    if (!raw) {
+        return {}
+    }
+    try {
+        const parsed = JSON.parse(raw)
+        return parsed && typeof parsed === 'object' ? parsed : {}
+    } catch (e) {
+        return { token: raw }
+    }
+}
+
+function configuredToken() {
+    const config = privateConfig()
+    return String(config.token || config.loginToken || '').trim()
+}
+
+function authHeaders(token, referer) {
+    return Object.assign({}, HEADERS, {
+        Authorization: 'Bearer ' + token,
+        Cookie: 'pinjiji_session=' + token,
+        Referer: referer || BASE + '/',
+    })
+}
+
 // ---------- 工具 ----------
 
 function b64encode(str) {
@@ -43,31 +74,37 @@ function b64encode(str) {
 }
 
 async function ensureToken() {
-    if (TOKEN) {
-        return true
+    if (typeof $fetch.get !== 'function') {
+        return false
     }
-    if (typeof $fetch.post !== 'function') {
+    const token = configuredToken()
+    if (!token) {
+        TOKEN = ''
+        console.error('[pinjiji] 缺少登录 token，请配置 CSP 私有配置')
         return false
     }
     try {
-        const resp = await $fetch.post(BASE + '/api/user/anon', JSON.stringify({ data: {} }), {
-            headers: {
-                'User-Agent': UA,
-                'Content-Type': 'application/json',
-                Accept: 'application/json, text/plain, */*',
-                Referer: BASE + '/',
-            },
+        const resp = await $fetch.get(BASE + '/api/user/me', {
+            headers: authHeaders(token, BASE + '/me'),
         })
-        const body = typeof resp.data === 'string' ? JSON.parse(resp.data) : resp.data
-        const token = (body.data && body.data.token) || ''
-        if (token) {
-            TOKEN = token
-            return true
+        if (Number(resp.status || 0) !== 200) {
+            TOKEN = ''
+            console.error('[pinjiji] 登录 token 已失效 status=' + resp.status)
+            return false
         }
-        console.error('[pinjiji] anon token 为空')
-        return false
+        const body = typeof resp.data === 'string' ? JSON.parse(resp.data) : resp.data
+        const payload = (body && body.data) || body || {}
+        const profile = payload.profile || (payload.data && payload.data.profile) || null
+        if (!profile || profile.guest !== false) {
+            TOKEN = ''
+            console.error('[pinjiji] 当前 token 不是已登录账号，拒绝匿名预览流')
+            return false
+        }
+        TOKEN = token
+        return true
     } catch (e) {
-        console.error('[pinjiji] 获取匿名 token 失败: ' + e)
+        TOKEN = ''
+        console.error('[pinjiji] 校验登录 token 失败: ' + e)
         return false
     }
 }
@@ -188,13 +225,9 @@ async function getPlayinfo(params) {
             BASE + '/api/sources/hgdj/playback',
             JSON.stringify({ data: { id: id, mediaId: ep } }),
             {
-                headers: {
-                    'User-Agent': UA,
+                headers: Object.assign({}, authHeaders(TOKEN, BASE + '/content/hgdj/' + id), {
                     'Content-Type': 'application/json',
-                    Accept: 'application/json, text/plain, */*',
-                    'Authorization': 'Bearer ' + TOKEN,
-                    Referer: BASE + '/content/hgdj/' + id,
-                },
+                }),
             }
         )
         const body = typeof resp.data === 'string' ? JSON.parse(resp.data) : resp.data
