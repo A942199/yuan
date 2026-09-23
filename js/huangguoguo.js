@@ -3,13 +3,14 @@
 //   列表   GET  /api/sources/hgdj/list?category=%2Fai-duanju%2F[&cursor=<b64>]  无需 token
 //   详情   GET  /api/sources/hgdj/detail?id=<id>                                无需 token
 //   播放   POST /api/sources/hgdj/playback  {"data":{"id":"..","mediaId":"1"}} + 登录 Bearer token
-//   登录 token 从 CSP 私有配置 $config_str 读取，不写入公开脚本
+//   登录 token 直接写在本脚本 LOGIN_TOKEN 常量中
 // m3u8 链接带限时 auth_key, 每次播放实时经 playback 接口获取, 不复用旧链接
 // 匿名 token 当前只返回约 54 秒预览/广告流，因此禁止匿名降级
 
 const UA =
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
 const BASE = 'https://pinjiji.vip'
+const LOGIN_TOKEN = '' // 在这里填 pinjiji.vip 已登录账号 token
 
 const HEADERS = {
     'User-Agent': UA,
@@ -25,27 +26,8 @@ const TABS = [
 
 let TOKEN = ''
 
-function privateConfig() {
-    let raw = ''
-    try {
-        raw = String(typeof $config_str === 'string' ? $config_str : '').trim()
-    } catch (e) {
-        raw = ''
-    }
-    if (!raw) {
-        return {}
-    }
-    try {
-        const parsed = JSON.parse(raw)
-        return parsed && typeof parsed === 'object' ? parsed : {}
-    } catch (e) {
-        return { token: raw }
-    }
-}
-
 function configuredToken() {
-    const config = privateConfig()
-    return String(config.token || config.loginToken || '').trim()
+    return String(LOGIN_TOKEN || '').trim()
 }
 
 function authHeaders(token, referer) {
@@ -80,7 +62,7 @@ async function ensureToken() {
     const token = configuredToken()
     if (!token) {
         TOKEN = ''
-        console.error('[pinjiji] 缺少登录 token，请配置 CSP 私有配置')
+        console.error('[pinjiji] 缺少登录 token，请在脚本顶部填写 LOGIN_TOKEN')
         return false
     }
     try {
