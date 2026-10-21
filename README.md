@@ -7,7 +7,7 @@
 ```text
 https://raw.githubusercontent.com/A942199/yuan/refs/heads/main/TV.json
 ```
-
+https://raw.githubusercontent.com/fangkuia/XPTV/main/CMS/XPAV.json
 ## 目录
 
 - `TV.json`：默认启用本仓库 `js/` 目录中经过严格播放验证的 15 个 CSP 源。
