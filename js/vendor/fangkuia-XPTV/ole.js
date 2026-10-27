@@ -487,6 +487,89 @@ function he(e) {
 	return t.join('')
 }
 
+// XPTV 提供 argsify、jsonify 和 $fetch；边界处理避免单次请求异常中断页面。
+function normalArgs(input) {
+	try {
+		const value = argsify(input)
+		return value && typeof value === 'object' && !Array.isArray(value) ? value : {}
+	} catch (_) {
+		return {}
+	}
+}
+
+function pageNumber(value) {
+	const number = Number(value)
+	return Number.isInteger(number) && number > 0 && number <= 100000 ? number : 1
+}
+
+function pathSegment(value, fallback) {
+	const safeValue =
+		(typeof value === 'string' || (typeof value === 'number' && Number.isFinite(value)))
+			? String(value).trim()
+			: ''
+	return encodeURIComponent(safeValue || fallback)
+}
+
+function validId(value) {
+	return (typeof value === 'string' || typeof value === 'number') &&
+		/^\d+$/.test(String(value))
+}
+
+// 已核对接口的 vip 为 boolean；兼容 1/'1'/'true'，其他值不贸然丢弃。
+function isFreeVideo(item) {
+	if (!item || typeof item !== 'object') return false
+	const vip = item.vip
+	return vip !== true && vip !== 1 &&
+		!(typeof vip === 'string' && /^(1|true)$/i.test(vip.trim()))
+}
+
+// 播放器只接收明确的 HTTP(S) 资源；拒绝 javascript:、file:、data: 等协议。
+function validMediaUrl(value) {
+	return typeof value === 'string' &&
+		/^https?:\/\/[^/?#@\s\\]+(?:[/?#][^\s\\]*)?$/i.test(value) &&
+		!(/[\u0000-\u001f\u007f]/.test(value))
+}
+
+function makeCard(item) {
+	if (!item || !validId(item.id)) return null
+	const id = String(item.id)
+	const picture = typeof item.pic === 'string' ? item.pic.trim() : ''
+	const cover = !picture ? '' :
+		(/^https?:\/\//i.test(picture) ? picture : 'https://static.olelive.com/' + picture.replace(/^\/+/, ''))
+	return {
+		vod_id: id,
+		vod_name: item.name == null ? '' : String(item.name),
+		vod_pic: cover,
+		vod_remarks: item.remarks == null ? '' : String(item.remarks),
+		ext: { id },
+	}
+}
+
+function warnRequest() {
+	if (typeof console !== 'undefined' && typeof console.warn === 'function') {
+		console.warn('[ole] API 请求失败或响应结构异常')
+	}
+}
+
+async function fetchApiData(url) {
+	try {
+		const response = await $fetch.get(url, { headers })
+		const payload = response && typeof response === 'object' && 'data' in response
+			? response.data : response
+		const body = typeof payload === 'string' ? JSON.parse(payload) : payload
+		if (!body || typeof body !== 'object' || Array.isArray(body) ||
+			(body.code != null && String(body.code) !== '0') ||
+			!body.data || typeof body.data !== 'object') {
+			warnRequest()
+			return null
+		}
+		return body.data
+	} catch (_) {
+		warnRequest()
+		return null
+	}
+}
+
 async function getConfig() {
 	return jsonify({
 		...appConfig,
@@ -501,100 +584,81 @@ async function getConfig() {
 	})
 }
 
-async function getCards(ext) {
-	ext = argsify(ext)
-	let cards = []
-	let page = ext.page || 1
-	let id = ext.id
+async function getCards(input) {
+	const ext = normalArgs(input)
+	const id = ext.id
+	const result = { list: [], filter: filterList[id] || [] }
+	const page = pageNumber(ext.page)
+	const filters = ext.filters && typeof ext.filters === 'object' &&
+		!Array.isArray(ext.filters) ? ext.filters : {}
 
-	const { cateId, area = '0', year = '0', by = 'update' } = ext?.filters || {}
 	let url
 	if (ext.type === 'index') {
-		url = `${
-			appConfig.site
-		}/v1/pub/vod/newest/${page}/12?_vv=${signature()}`
+		url = appConfig.site + '/v1/pub/vod/newest/' + page + '/12?_vv=' + signature()
 	} else {
-		url = `${appConfig.site}/v1/pub/vod/list/true/3/0/${
-			area || '0'
-		}/${id}/${cateId || '0'}/${
-			year || '0'
-		}/${by}/${page}/48?_vv=${signature()}`
+		if (!validId(id)) return jsonify(result)
+		url = appConfig.site + '/v1/pub/vod/list/true/3/0/' +
+			pathSegment(filters.area, '0') + '/' + pathSegment(id, '0') + '/' +
+			pathSegment(filters.cateId, '0') + '/' + pathSegment(filters.year, '0') +
+			'/' + pathSegment(filters.by, 'update') + '/' + page +
+			'/48?_vv=' + signature()
 	}
 
-	const { data } = await $fetch.get(url, { headers })
-
-	JSON.parse(data).data.list.forEach((e) => {
-		cards.push({
-			vod_id: String(e.id),
-			vod_name: e.name,
-			vod_pic: `https://static.olelive.com/${e.pic}`,
-			vod_remarks: e.remarks || '',
-			ext: { id: String(e.id) },
-		})
-	})
-
-	return jsonify({ list: cards, filter: filterList[id] })
+	const payload = await fetchApiData(url)
+	const items = payload && Array.isArray(payload.list) ? payload.list : []
+	for (const item of items) {
+		if (!isFreeVideo(item)) continue
+		const card = makeCard(item)
+		if (card) result.list.push(card)
+	}
+	return jsonify(result)
 }
 
-async function getTracks(ext) {
-	ext = argsify(ext)
-	let groups = []
+async function getTracks(input) {
+	const ext = normalArgs(input)
+	const groups = []
+	if (!validId(ext.id)) return jsonify({ list: groups })
 
-	let url = `${appConfig.site}/v1/pub/vod/detail/${
-		ext.id
-	}/true?_vv=${signature()}`
-	const { data } = await $fetch.get(url, { headers })
-
-	let group = {
-		title: '播放列表',
-		tracks: [],
-	}
-
-	JSON.parse(data).data.urls.forEach((e) => {
-		group.tracks.push({
-			name: e.title,
+	const url = appConfig.site + '/v1/pub/vod/detail/' +
+		pathSegment(ext.id, '0') + '/true?_vv=' + signature()
+	const payload = await fetchApiData(url)
+	const items = payload && Array.isArray(payload.urls) ? payload.urls : []
+	const tracks = []
+	for (const item of items) {
+		if (!item || !validMediaUrl(item.url)) continue
+		tracks.push({
+			name: item.title == null ? '播放' : String(item.title),
 			pan: '',
-			ext: { url: e.url },
+			ext: { url: item.url },
 		})
-	})
-
-	if (group.tracks.length > 0) {
-		groups.push(group)
 	}
-
+	if (tracks.length) groups.push({ title: '播放列表', tracks })
 	return jsonify({ list: groups })
 }
 
-async function getPlayinfo(ext) {
-	ext = argsify(ext)
-	return jsonify({ urls: [ext.url] })
+async function getPlayinfo(input) {
+	const ext = normalArgs(input)
+	return jsonify({ urls: validMediaUrl(ext.url) ? [ext.url] : [] })
 }
 
-async function search(ext) {
-	ext = argsify(ext)
-	let cards = []
-	let page = ext.page || 1
-	let keyword = ext.text || ''
+async function search(input) {
+	const ext = normalArgs(input)
+	const cards = []
+	const page = pageNumber(ext.page)
+	const keyword = typeof ext.text === 'string' ? ext.text.trim() : ''
+	if (!keyword) return jsonify({ list: cards })
 
-	let url = `${appConfig.site}/v1/pub/index/search/${encodeURIComponent(
-		keyword
-	)}/vod/0/${page}/48?_vv=${signature()}`
-	const { data } = await $fetch.get(url, { headers })
-
-	let vodData = JSON.parse(data).data.data.find((item) => item.type === 'vod')
-	if (vodData && vodData.list) {
-		vodData.list
-			.filter((item) => item.vip === false)
-			.forEach((e) => {
-				cards.push({
-					vod_id: String(e.id),
-					vod_name: e.name,
-					vod_pic: `https://static.olelive.com/${e.pic}`,
-					vod_remarks: e.remarks || '',
-					ext: { id: String(e.id) },
-				})
-			})
+	const url = appConfig.site + '/v1/pub/index/search/' +
+		encodeURIComponent(keyword) + '/vod/0/' + page +
+		'/48?_vv=' + signature()
+	const payload = await fetchApiData(url)
+	const groups = payload && Array.isArray(payload.data) ? payload.data : []
+	const vodData = groups.find((item) => item && item.type === 'vod')
+	const items = vodData && Array.isArray(vodData.list) ? vodData.list : []
+	for (const item of items) {
+		if (!isFreeVideo(item)) continue
+		const card = makeCard(item)
+		if (card) cards.push(card)
 	}
-
 	return jsonify({ list: cards })
 }
